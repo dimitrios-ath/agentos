@@ -80,6 +80,10 @@ class Policy(MemberInitializer):
         """Improves the policy based on the agent's experience."""
         pass
 
+    def observe(self, action, observation, reward, done, info):
+        """Observes the transition that resulted from the action"""
+        pass
+
 
 # Inspired by OpenAI's gym.Env
 # https://github.com/openai/gym/blob/master/gym/core.py
@@ -121,8 +125,9 @@ class Environment(MemberInitializer):
 def save_data(name, network):
     # with open(save_data.data_location / name, "wb") as f:
     #     pickle.dump(data, f)
-    print('Saving module')
+    print("Saving module")
     import tensorflow as tf
+
     checkpoint = tf.train.Checkpoint(module=network)
     checkpoint.save(save_data.data_location / name)
 
@@ -131,13 +136,14 @@ def save_data(name, network):
 # Same caveats as save_data above
 def restore_data(name, network):
     import tensorflow as tf
+
     checkpoint = tf.train.Checkpoint(module=network)
     latest = tf.train.latest_checkpoint(restore_data.data_location)
     if latest is not None:
-        print('AOS: Restoring policy network from checkpoint')
+        print("AOS: Restoring policy network from checkpoint")
         checkpoint.restore(latest)
     else:
-        print('AOS: No checkpoint found for policy network')
+        print("AOS: No checkpoint found for policy network")
 
 
 def run_agent(agent, hz=40, max_iters=None, as_thread=False):
