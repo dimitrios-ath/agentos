@@ -8,7 +8,6 @@ import os
 import sys
 import yaml
 import click
-import pickle
 from datetime import datetime
 import importlib.util
 from pathlib import Path

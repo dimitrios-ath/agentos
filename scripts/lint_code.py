@@ -16,6 +16,12 @@ from shared import traverse_tracked_files
 
 returncode = 0
 
+IGNORED_FILES = [
+    "agentos/templates/agent.py",
+    "agentos/templates/policy.py",
+    "agentos/templates/environment.py",
+]
+
 
 def flake_file(path):
     global returncode
@@ -32,5 +38,5 @@ def flake_file(path):
         print()
 
 
-traverse_tracked_files(root_dir, flake_file)
+traverse_tracked_files(root_dir, flake_file, IGNORED_FILES)
 sys.exit(returncode)

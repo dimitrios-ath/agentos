@@ -1,7 +1,6 @@
 """Core AgentOS APIs."""
 from collections import namedtuple
 import time
-import pickle
 from threading import Thread
 
 
