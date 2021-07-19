@@ -174,13 +174,14 @@ def run_agent(agent, hz=40, max_iters=None, as_thread=False):
             if hz:
                 time.sleep(1 / hz)
             iter_count += 1
+        return iter_count
 
     if as_thread:
         t = Thread(target=runner)
         t.start()
         return t
     else:
-        runner()
+        return runner()
 
 
 def default_rollout_step(policy, obs, step_num):

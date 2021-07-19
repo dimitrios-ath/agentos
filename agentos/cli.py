@@ -14,6 +14,7 @@ import importlib.util
 from pathlib import Path
 import configparser
 import importlib
+import statistics
 
 
 CONDA_ENV_FILE = Path("./templates/conda_env.yaml")
@@ -276,7 +277,7 @@ def load_agent_from_path(agent_file, package_location):
 
 
 @agentos_cmd.command()
-@click.argument("iters", type=click.INT, required=True)
+@click.argument("iters", type=click.INT, default=1)
 @click.option(
     "--agent-file",
     "-f",
@@ -335,6 +336,58 @@ def run(agent_file, package_location, hz, max_iters):
     """Run an agent by calling advance() on it until it returns True"""
     agent = load_agent_from_path(agent_file, package_location)
     agentos.run_agent(agent, hz=hz, max_iters=max_iters)
+
+
+@agentos_cmd.command()
+@click.argument("iters", type=click.INT, default=100)
+@click.option(
+    "--agent-file",
+    "-f",
+    type=click.Path(exists=True),
+    default="./agent.ini",
+    help="Path to agent definition file (agent.ini).",
+)
+@click.option(
+    "--package-location",
+    "-l",
+    metavar="PACKAGE_LOCATION",
+    type=click.Path(),
+    default="./.acr",
+    help="Path to AgentOS Component Registry installation directory",
+)
+@click.option(
+    "--hz",
+    "-h",
+    metavar="HZ",
+    default=None,
+    type=int,
+    help="Frequency to call agent.advance().",
+)
+@click.option(
+    "--max-iters",
+    "-m",
+    metavar="MAX_STEPS",
+    type=int,
+    default=None,
+    help="Stop running agent after this many calls to advance().",
+)
+def test(iters, agent_file, package_location, hz, max_iters):
+    """Run an agent by calling advance() on it until it returns True"""
+    all_steps = []
+    for i in range(iters):
+        # TODO - A faster way to reset the agent isntead of reloading
+        agent = load_agent_from_path(agent_file, package_location)
+        steps = agentos.run_agent(agent, hz=hz, max_iters=max_iters)
+        all_steps.append(steps)
+
+    if all_steps:
+        mean = statistics.mean(all_steps)
+        median = statistics.median(all_steps)
+        print()
+        print(f"Max steps over {iters} trials: {max(all_steps)}")
+        print(f"Mean steps over {iters} trials: {mean}")
+        print(f"Median steps over {iters} trials: {median}")
+        print(f"Min steps over {iters} trials: {min(all_steps)}")
 
 
 if __name__ == "__main__":
