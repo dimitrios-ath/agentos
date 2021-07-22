@@ -408,6 +408,7 @@ def learn(**kwargs):
                 package_location,
                 hz,
                 max_iterations,
+                verbose,
                 backup_dst=backup_dst,
             )
         agent.learn()
