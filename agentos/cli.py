@@ -320,19 +320,9 @@ def back_up_agent(agent, package_location):
     # TODO - dedup with restore_saved_data
     package_location = Path(package_location).absolute()
     data_location = get_data_location(package_location)
-    backups_location = get_backups_location(package_location)
-    shutil.copytree(data_location, backups_location / str(uuid.uuid4()))
-
-
-def test_agent(test_episodes, agent_file, package_location, hz, max_iters):
-    agent = load_agent_from_path(agent_file, package_location)
-    print()
-    print(
-        f"Agent trained for {agent.get_step_count()} steps "
-        f"({agent.get_episode_count()} episodes):"
-    )
-    _run(test_episodes, agent_file, package_location, hz, max_iters)
-    print()
+    backup_dst = get_backups_location(package_location) / str(uuid.uuid4())
+    shutil.copytree(data_location, backup_dst)
+    return backup_dst
 
 
 @agentos_cmd.command()
@@ -401,9 +391,14 @@ def learn(**kwargs):
 
     for i in range(iterations):
         if test_every and i % test_every == 0:
-            back_up_agent(agent, package_location)
-            test_agent(
-                test_episodes, agent_file, package_location, hz, max_iterations
+            backup_dst = back_up_agent(agent, package_location)
+            _run(
+                test_episodes,
+                agent_file,
+                package_location,
+                hz,
+                max_iterations,
+                backup_dst=backup_dst,
             )
         agent.learn()
 
@@ -452,7 +447,14 @@ def run(iterations, agent_file, package_location, hz, max_iterations):
     _run(iterations, agent_file, package_location, hz, max_iterations)
 
 
-def _run(iterations, agent_file, package_location, hz, max_iterations):
+def _run(
+    iterations,
+    agent_file,
+    package_location,
+    hz,
+    max_iterations,
+    backup_dst=None,
+):
     all_steps = []
     for i in range(iterations):
         # TODO - A faster way to reset the agent isntead of reloading
@@ -464,10 +466,17 @@ def _run(iterations, agent_file, package_location, hz, max_iterations):
         mean = statistics.mean(all_steps)
         median = statistics.median(all_steps)
         print()
-        print(f"Max steps over {iterations} trials: {max(all_steps)}")
-        print(f"Mean steps over {iterations} trials: {mean}")
-        print(f"Median steps over {iterations} trials: {median}")
-        print(f"Min steps over {iterations} trials: {min(all_steps)}")
+        print(
+            f"Agent trained for {agent.get_step_count()} steps "
+            f"({agent.get_episode_count()} episodes):"
+        )
+        print(f"\tMax steps over {iterations} trials: {max(all_steps)}")
+        print(f"\tMean steps over {iterations} trials: {mean}")
+        print(f"\tMedian steps over {iterations} trials: {median}")
+        print(f"\tMin steps over {iterations} trials: {min(all_steps)}")
+        if backup_dst:
+            print(f"Agent backed up in {backup_dst}")
+        print()
 
 
 if __name__ == "__main__":
