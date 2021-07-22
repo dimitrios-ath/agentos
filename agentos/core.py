@@ -2,6 +2,7 @@
 from collections import namedtuple
 import time
 from threading import Thread
+import pickle
 
 
 class MemberInitializer:
@@ -53,6 +54,14 @@ class Agent(MemberInitializer):
         """Returns True when agent is done; False or None otherwise."""
         raise NotImplementedError
 
+    # TODO - should step_count be a "primitive" on Agent?
+    def get_step_count(self):
+        return 0
+
+    # TODO - should episode_count be a "primitive" on Agent?
+    def get_episode_count(self):
+        return 0
+
 
 class Policy(MemberInitializer):
     """Pick next action based on last observation from environment.
@@ -82,6 +91,18 @@ class Policy(MemberInitializer):
     def observe(self, action, observation, reward, done, info):
         """Observes the transition that resulted from the action"""
         pass
+
+
+class Trainer(MemberInitializer):
+    pass
+
+
+class Dataset(MemberInitializer):
+    pass
+
+
+class Network(MemberInitializer):
+    pass
 
 
 # Inspired by OpenAI's gym.Env
@@ -121,28 +142,36 @@ class Environment(MemberInitializer):
 # TODO - ONLY works for the demo (Acme on TF) because the dynamic module
 #        loading in ACR core breaks pickle. Need to figure out a more general
 #        way to handle this
-def save_data(name, network):
-    # with open(save_data.data_location / name, "wb") as f:
-    #     pickle.dump(data, f)
+def save_tensorflow(name, network):
     print("Saving module")
     import tensorflow as tf
 
     checkpoint = tf.train.Checkpoint(module=network)
-    checkpoint.save(save_data.data_location / name)
+    checkpoint.save(save_tensorflow.data_location / name)
 
 
 # https://github.com/deepmind/sonnet#tensorflow-checkpointing
 # Same caveats as save_data above
-def restore_data(name, network):
+def restore_tensorflow(name, network):
     import tensorflow as tf
 
     checkpoint = tf.train.Checkpoint(module=network)
-    latest = tf.train.latest_checkpoint(restore_data.data_location)
+    latest = tf.train.latest_checkpoint(restore_tensorflow.data_location)
     if latest is not None:
         print("AOS: Restoring policy network from checkpoint")
         checkpoint.restore(latest)
     else:
         print("AOS: No checkpoint found for policy network")
+
+
+def save_data(name, data):
+    with open(save_data.data_location / name, "wb") as f:
+        pickle.dump(data, f)
+
+
+def restore_data(name):
+    with open(restore_data.data_location / name, "rb") as f:
+        return pickle.load(f)
 
 
 def run_agent(agent, hz=40, max_iters=None, as_thread=False):

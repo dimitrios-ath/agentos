@@ -9,8 +9,10 @@ from agentos.core import (
     rollout,
     rollouts,
     save_data,
+    save_tensorflow,
     restore_data,
-    saved_data,
+    restore_tensorflow,
+    saved_data,  # TODO - REMOVE ME?
 )
 
 __all__ = [
@@ -21,6 +23,8 @@ __all__ = [
     "rollout",
     "rollouts",
     "save_data",
+    "save_tensorflow",
     "restore_data",
+    "restore_tensorflow",
     "saved_data",
 ]
