@@ -9,7 +9,8 @@ class {agent_name}(agentos.Agent):
         self.obs = self.environment.reset()
 
     def learn(self):
-        print("{agent_name} is calling self.policy.improve()")
+        if self.verbose:
+            print("{agent_name} is calling self.policy.improve()")
         step_count = self.get_step_count()
         episode_count = self.get_episode_count()
         action = None
@@ -31,16 +32,18 @@ class {agent_name}(agentos.Agent):
         self.save_episode_count(episode_count)
 
     def advance(self):
-        print("{agent_name} is taking an action")
+        if self.verbose:
+            print("{agent_name} is taking an action")
         next_action = self.policy.decide(
             self.obs, self.environment.valid_actions
         )
         self.obs, reward, done, info = self.environment.step(next_action)
-        print("\tObservation: " + str(self.obs))
-        print("\tReward:      " + str(reward))
-        print("\tDone:        " + str(done))
-        print("\tInfo:        " + str(info))
-        print()
+        if self.verbose:
+            print("\tObservation: " + str(self.obs))
+            print("\tReward:      " + str(reward))
+            print("\tDone:        " + str(done))
+            print("\tInfo:        " + str(info))
+            print()
         return done
 
     def get_step_count(self):

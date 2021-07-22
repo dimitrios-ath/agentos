@@ -72,6 +72,8 @@ def install(package_name, package_location, agent_file):
     package_location = Path(package_location).absolute()
     registry_entry = get_registry_entry(package_name)
     if confirm_package_installation(registry_entry, package_location):
+        # Blow away agent training step count
+        create_core_data(package_location)
         create_package_directory_structure(package_location)
         release_entry = get_release_entry(registry_entry)
         repo = clone_package_repo(release_entry, package_location)
@@ -293,7 +295,7 @@ def restore_saved_data(package_location):
     # agentos.__dict__["saved_data"] = saved_data
 
 
-def load_agent_from_path(agent_file, package_location):
+def load_agent_from_path(agent_file, package_location, verbose):
     agent_path = Path(agent_file)
     agent_dir_path = agent_path.parent.absolute()
     config = configparser.ConfigParser()
@@ -311,6 +313,7 @@ def load_agent_from_path(agent_file, package_location):
     agent_kwargs = {
         "environment": environment,
         "policy": policy,
+        "verbose": verbose,
         **config["Agent"],
     }
     return agent_cls(**agent_kwargs)
@@ -378,6 +381,12 @@ def back_up_agent(agent, package_location):
     default=None,
     help="Stop running agent after this many calls to advance().",
 )
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Agent prints verbose logs.",
+)
 def learn(**kwargs):
     """Trains an agent by calling its learn() method in a loop."""
     iterations = kwargs["iterations"]
@@ -387,7 +396,8 @@ def learn(**kwargs):
     package_location = kwargs["package_location"]
     hz = kwargs["hz"]
     max_iterations = kwargs["max_iterations"]
-    agent = load_agent_from_path(agent_file, package_location)
+    verbose = kwargs["verbose"]
+    agent = load_agent_from_path(agent_file, package_location, verbose)
 
     for i in range(iterations):
         if test_every and i % test_every == 0:
@@ -442,9 +452,15 @@ def learn(**kwargs):
     default=None,
     help="Stop running agent after this many calls to advance().",
 )
-def run(iterations, agent_file, package_location, hz, max_iterations):
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Agent prints verbose logs.",
+)
+def run(iterations, agent_file, package_location, hz, max_iterations, verbose):
     """Run an agent by calling advance() on it until it returns True"""
-    _run(iterations, agent_file, package_location, hz, max_iterations)
+    _run(iterations, agent_file, package_location, hz, max_iterations, verbose)
 
 
 def _run(
@@ -453,12 +469,13 @@ def _run(
     package_location,
     hz,
     max_iterations,
+    verbose,
     backup_dst=None,
 ):
     all_steps = []
     for i in range(iterations):
         # TODO - A faster way to reset the agent isntead of reloading
-        agent = load_agent_from_path(agent_file, package_location)
+        agent = load_agent_from_path(agent_file, package_location, verbose)
         steps = agentos.run_agent(agent, hz=hz, max_iters=max_iterations)
         all_steps.append(steps)
 
