@@ -1,7 +1,7 @@
 """Core AgentOS APIs."""
-from collections import namedtuple
 import time
 from threading import Thread
+from collections import namedtuple
 import pickle
 
 
@@ -320,3 +320,9 @@ def rollouts(
         rollout(policy, env_class, step_fn, max_steps)
         for _ in range(num_rollouts)
     ]
+
+
+# https://github.com/deepmind/acme/blob/master/acme/specs.py
+EnvironmentSpec = namedtuple(
+    "EnvironmentSpec", ["observations", "actions", "rewards", "discounts"]
+)

@@ -29,7 +29,7 @@ cartpole:
   description: "Balancing a pole on a cart"
   releases:
     - name: 1.0.0
-      hash: 3b71df55736fa65d548ae023bbc5f570a9dc4bf6
+      hash: da78f011a5308f2428eaa12fc19fef309ffe29b0
       github_url: https://github.com/nickjalbert/cartpole
       file_path: cartpole.py
       class_name: CartPole

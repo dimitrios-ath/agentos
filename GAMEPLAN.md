@@ -22,6 +22,31 @@ interactions) and how much code one has to write to reuse agent.
 ie agent.py can orchestrate a very specific set of interactions with a specific
 set of components but that makes it harder to swap components
 
+Notes 7/24/2021:
+
+agentos default agent works with acme_r2d2
+
+```
+agentos init .
+agentos install acme_r2d2
+agentos run
+agentos learn
+```
+
+TODO:
+* Current difficulty: why does r2d2 insist on float input?
+* **Often you get unlucky with initialization and run/learn on corridor does
+  not terminate**
+* Port others in registry
+* What is this reverb checkpoint restore and is it interfering poorly with agentos
+
+* **Componentize**
+
+
+Design:
+* Just included dm_env in agentos core, bad idea?
+
+
 Notes 7/22/2021:
 
 * Broke out save_data and save_tensorflow (and updated acme_r2d2)

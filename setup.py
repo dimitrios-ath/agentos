@@ -23,6 +23,7 @@ setup(
         "mlflow==1.9.1",
         "gym==0.17.1",
         "numpy>=1.18.5",
+        "dm-env>=1.5",
     ],
     entry_points="""
         [console_scripts]
