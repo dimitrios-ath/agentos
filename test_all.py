@@ -34,7 +34,7 @@ def test_cli(tmpdir):
     assert policy.is_file()
     assert ml_project.is_file()
     assert conda_env.is_file()
-    commands = [["agentos", "learn", "5"], ["agentos", "run"]]
+    commands = [["agentos", "learn"], ["agentos", "run"]]
     for c in commands:
         subprocess.run(c, cwd=tmpdir, check=True)
 
