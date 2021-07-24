@@ -271,6 +271,7 @@ def get_class_from_config(agent_dir_path, config):
     return cls
 
 
+# TODO - V hacky!  is this the a reasonable way to go?
 # TODO - uglily communicates to save_data() the dynamic data location
 def decorate_save_data_fns(package_location):
     dl = get_data_location(package_location)
@@ -280,28 +281,13 @@ def decorate_save_data_fns(package_location):
     agentos.__dict__["restore_tensorflow"].__dict__["data_location"] = dl
 
 
-# TODO - V hacky!  is this the a reasonable way to go?
-def restore_saved_data(package_location):
-    decorate_save_data_fns(package_location)
-    # TODO - REMOVE ME?
-    # saved_data = {}
-    # TODO - handle aliasing
-    # files = data_location.glob("*")
-    # for f in files:
-    #    print(f"Restoring data at {f}")
-    #    with open(f, "rb") as f_in:
-    #        data = pickle.load(f_in)
-    #    saved_data[f.name] = data
-    # agentos.__dict__["saved_data"] = saved_data
-
-
 def load_agent_from_path(agent_file, package_location, verbose):
     agent_path = Path(agent_file)
     agent_dir_path = agent_path.parent.absolute()
     config = configparser.ConfigParser()
     config.read(agent_path)
 
-    restore_saved_data(package_location)
+    decorate_save_data_fns(package_location)
 
     agent_cls = get_class_from_config(agent_dir_path, config["Agent"])
     env_cls = get_class_from_config(agent_dir_path, config["Environment"])
@@ -320,7 +306,6 @@ def load_agent_from_path(agent_file, package_location, verbose):
 
 
 def back_up_agent(agent, package_location):
-    # TODO - dedup with restore_saved_data
     package_location = Path(package_location).absolute()
     data_location = get_data_location(package_location)
     backup_dst = get_backups_location(package_location) / str(uuid.uuid4())

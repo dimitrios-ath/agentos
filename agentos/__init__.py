@@ -12,7 +12,6 @@ from agentos.core import (
     save_tensorflow,
     restore_data,
     restore_tensorflow,
-    saved_data,  # TODO - REMOVE ME?
 )
 
 __all__ = [
@@ -26,5 +25,4 @@ __all__ = [
     "save_tensorflow",
     "restore_data",
     "restore_tensorflow",
-    "saved_data",
 ]

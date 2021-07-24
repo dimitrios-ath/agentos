@@ -320,6 +320,3 @@ def rollouts(
         rollout(policy, env_class, step_fn, max_steps)
         for _ in range(num_rollouts)
     ]
-
-
-saved_data = {}
