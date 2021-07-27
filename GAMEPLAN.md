@@ -1,6 +1,11 @@
-Pain point: developing AOS while developing components (e.g. componentizing
-r2d2 while AOS interface is unstable)
+## Pain points 
 
+* Developing AOS while developing components (e.g. componentizing r2d2 while
+  AOS interface is unstable)
+* I changed something, does my agent still work? (mini benchmark?)
+
+
+## TODO
 
 // 1. See how hard it will be to commit to a custom spec
 // 2. Maybe implement spec
