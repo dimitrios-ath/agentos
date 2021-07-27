@@ -1,6 +1,6 @@
-1. See how hard it will be to commit to a custom spec
-2. Maybe implement spec
-3. Get agent working (maybe improve testing and training feedback)
+// 1. See how hard it will be to commit to a custom spec
+// 2. Maybe implement spec
+// 3. Get agent working (maybe improve testing and training feedback)
 4. Componentize R2D2
 
 
