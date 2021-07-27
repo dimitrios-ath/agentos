@@ -41,7 +41,7 @@ acme_r2d2:
   description: "R2D2 policy ported from Acme framework"
   releases:
     - name: 1.0.0
-      hash: 38950827c6c42a623e4f094eb12a7d78cd188449
+      hash: 0eb26fef01a235b1c627bbe9c04776459c5560f5
       github_url: https://github.com/nickjalbert/r2d2
       file_path: policy.py
       class_name: R2D2Policy
