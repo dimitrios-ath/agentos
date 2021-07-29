@@ -4,58 +4,21 @@ import agentos
 
 # A basic agent.
 class {agent_name}(agentos.Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.obs = self.environment.reset()
-
     def learn(self):
         if self.verbose:
-            print("{agent_name} is calling self.policy.improve()")
-        step_count = self.get_step_count()
-        episode_count = self.get_episode_count()
-        action = None
-        self.obs = self.environment.reset()
-        reward = None
-        done = False
-        info = {{}}
-        self.policy.observe(action, self.obs, reward, done, info)
-        while not done:
-            action = self.policy.decide(
-                self.obs, self.environment.valid_actions
-            )
-            self.obs, reward, done, info = self.environment.step(action)
-            self.policy.observe(action, self.obs, reward, done, info)
-            step_count += 1
-        self.policy.improve()
-        episode_count += 1
-        self.save_step_count(step_count)
-        self.save_episode_count(episode_count)
+            print("{agent_name} is performing a rollout to improve its policy")
+        self.rollout(should_learn=True)
 
     def advance(self):
         if self.verbose:
             print("{agent_name} is taking an action")
-        next_action = self.policy.decide(
-            self.obs, self.environment.valid_actions
-        )
-        self.obs, reward, done, info = self.environment.step(next_action)
+        prev_obs, action, obs, reward, done, info = self.step()
         if self.verbose:
-            print("\tObservation: " + str(self.obs))
-            print("\tReward:      " + str(reward))
-            print("\tDone:        " + str(done))
-            print("\tInfo:        " + str(info))
+            print("\tPrevious Observation: " + str(prev_obs))
+            print("\tAction:               " + str(action))
+            print("\tObservation:          " + str(obs))
+            print("\tReward:               " + str(reward))
+            print("\tDone:                 " + str(done))
+            print("\tInfo:                 " + str(info))
             print()
         return done
-
-    def get_step_count(self):
-        return agentos.restore_data('step_count')
-        
-    def get_episode_count(self):
-        return agentos.restore_data('episode_count')
-
-    def save_step_count(self, step_count):
-        return agentos.save_data('step_count', step_count)
-        
-    def save_episode_count(self, episode_count):
-        return agentos.save_data('episode_count', episode_count)
-
-

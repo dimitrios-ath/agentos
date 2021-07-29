@@ -22,6 +22,8 @@ CONDA_ENV_FILE = Path("./templates/conda_env.yaml")
 MLFLOW_PROJECT_FILE = Path("./templates/MLProject")
 AGENT_DEF_FILE = Path("./templates/agent.py")
 ENV_DEF_FILE = Path("./templates/environment.py")
+DATASET_DEF_FILE = Path("./templates/dataset.py")
+TRAINER_DEF_FILE = Path("./templates/trainer.py")
 POLICY_DEF_FILE = Path("./templates/policy.py")
 AGENT_INI_FILE = Path("./templates/agent.ini")
 
@@ -40,6 +42,8 @@ INIT_FILES = [
     AGENT_DEF_FILE,
     ENV_DEF_FILE,
     POLICY_DEF_FILE,
+    DATASET_DEF_FILE,
+    TRAINER_DEF_FILE,
     AGENT_INI_FILE,
 ]
 

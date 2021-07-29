@@ -12,11 +12,14 @@
 // 3. Get agent working (maybe improve testing and training feedback)
 4. Componentize R2D2
 
+* Logger object
+* Unify run loops
+
 
 ### Possible Components
 
 Trainer
-Network
+?? Network
 Dataset
 Policy
 

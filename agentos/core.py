@@ -46,21 +46,60 @@ class Agent(MemberInitializer):
     learning, use of models, state updates, etc.
     """
 
-    def learn(self):
-        """Does one iteration of training"""
-        pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(**kwargs)
+        self.curr_obs = None
+        self._should_reset = True
+
+    def step(self, should_learn=False):
+        """Takes one action within the environment"""
+        if self._should_reset:
+            self.curr_obs = self.environment.reset()
+            self._should_reset = False
+            if should_learn:
+                self.policy.observe(None, self.curr_obs, None, None, {})
+        action = self.policy.decide(
+            self.curr_obs, self.environment.valid_actions
+        )
+        prev_obs = self.curr_obs
+        self.curr_obs, reward, done, info = self.environment.step(action)
+        if should_learn:
+            self.policy.observe(action, self.curr_obs, reward, done, info)
+        if done:
+            self._should_reset = True
+        return prev_obs, action, self.curr_obs, reward, done, info
+
+    def rollout(self, should_learn):
+        """Does training on one rollout worth of transitions"""
+        done = False
+        step_count = 0
+        while not done:
+            prev_obs, action, curr_obs, reward, done, info = self.step(
+                should_learn
+            )
+            step_count += 1
+        if should_learn:
+            self.policy.improve()
+            prev_step_count = self.get_step_count()
+            prev_episode_count = self.get_episode_count()
+            self.save_step_count(prev_step_count + step_count)
+            self.save_episode_count(prev_episode_count + 1)
 
     def advance(self):
         """Returns True when agent is done; False or None otherwise."""
         raise NotImplementedError
 
-    # TODO - should step_count be a "primitive" on Agent?
     def get_step_count(self):
-        return 0
+        return restore_data("step_count")
 
-    # TODO - should episode_count be a "primitive" on Agent?
     def get_episode_count(self):
-        return 0
+        return restore_data("episode_count")
+
+    def save_step_count(self, step_count):
+        return save_data("step_count", step_count)
+
+    def save_episode_count(self, episode_count):
+        return save_data("episode_count", episode_count)
 
 
 class Policy(MemberInitializer):
