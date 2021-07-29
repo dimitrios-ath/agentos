@@ -148,6 +148,10 @@ def update_agent_ini(registry_entry, release_entry, repo, agent_file):
         section = "Environment"
     elif registry_entry["type"] == "policy":
         section = "Policy"
+    elif registry_entry["type"] == "dataset":
+        section = "Dataset"
+    elif registry_entry["type"] == "trainer":
+        section = "Trainer"
     else:
         raise Exception(f"Component component type: {registry_entry['type']}")
 
