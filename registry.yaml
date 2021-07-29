@@ -46,3 +46,27 @@ acme_r2d2:
       file_path: policy.py
       class_name: R2D2Policy
       requirements_path: requirements.txt
+acme_reverb_dataset:
+  type: dataset
+  agent_os_versions:
+    - 0.0.7
+  description: "Reverb server tuned to work with Acme R2D2"
+  releases:
+    - name: 1.0.0
+      hash: cfc38a6847c0c71f458cb953eca5abdd17cab288
+      github_url: https://github.com/nickjalbert/reverb_dataset
+      file_path: dataset.py
+      class_name: ReverbDataset
+      requirements_path: requirements.txt
+acme_r2d2_trainer:
+  type: trainer
+  agent_os_versions:
+    - 0.0.7
+  description: "Trainer to improve the Acme R2D2 policy"
+  releases:
+    - name: 1.0.0
+      hash: 4cb60a851f37ff316c626394266d1cd79fab3acc
+      github_url: https://github.com/nickjalbert/r2d2_trainer
+      file_path: trainer.py
+      class_name: R2D2Trainer
+      requirements_path: requirements.txt
