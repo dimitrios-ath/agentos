@@ -13,25 +13,52 @@
 4. Componentize R2D2
 
 
-
+### Possible Components
 
 Trainer
 Network
 Dataset
 Policy
 
-
-Offline
-Distributed
+Can we handle offline and distributed?
 
 
-Tension between how expressivity/generality of agent.py (coordinating the
-interactions) and how much code one has to write to reuse agent.
+Tension between how expressivity/generality of agent.py versus how much is
+baked into the AOS runtime as assumptions.  This choice affects how much code
+one has to write to reuse agent. That is, agent.py can orchestrate a very
+specific set of interactions with a specific set of components but that makes
+it harder to swap components (or, at least, it makes the component APIs more
+demanding).
 
-ie agent.py can orchestrate a very specific set of interactions with a specific
-set of components but that makes it harder to swap components
+## Notes
 
-Notes 7/24/2021:
+### 7/29/2021
+
+Had a meeting with Andy last night about AOS metrics and data management.
+Fallout:
+
+* Good progress on data management and metrics
+* MLFlow can do all this (and more!) but it might not be perfectly adapted to
+  RL
+* Think hard before reimplementing much more MLFlow functionality
+* BUT not urgent to switch the management/metrics backend to MLFlow
+
+
+TODOs and TOTHINKS:
+
+* Flesh out last user story a bit (about the component development workflow)
+  (see next slide)
+    * Some solutions might include programmatic agent instantiation for
+      benchmarking
+    * A lifecycle diagram might also help
+* We might want an alternate demo of how to develop your own component
+* Unify learning loops (e.g. run, learn, etc) so we can use a single
+  metrics/debugging infrastructure (and record benchmark results during a run)
+* // Wordsmithing output of run metrics
+* What does MLFlow not address for RL?
+
+
+### 7/24/2021:
 
 agentos default agent works with acme_r2d2
 
@@ -48,7 +75,6 @@ TODO:
   not terminate**
 * Port others in registry
 * What is this reverb checkpoint restore and is it interfering poorly with agentos
-
 * **Componentize**
 
 
@@ -56,14 +82,17 @@ Design:
 * Just included dm_env in agentos core, bad idea?
 
 
-Notes 7/22/2021:
+### 7/22/2021
 
 * Broke out save_data and save_tensorflow (and updated acme_r2d2)
 * Added "core data" that tracks an agents training steps and episodes
 * Now, we have flags that determine how often we backup and test and agent while training
 
 
-## Basic Data Saving Functionality to be ported MLFlow
+
+## ETC
+
+### Basic Data Saving Functionality to be ported MLFlow
 
 https://github.com/agentos-project/agentos/compare/master...nickjalbert:nj_componentize_r2d2?expand=1
 
@@ -82,7 +111,7 @@ https://github.com/agentos-project/agentos/compare/master...nickjalbert:nj_compo
 
 make all envs work with r2d2
 
-## General TODOs
+### OLD TODOs
 
 Registry url: https://raw.githubusercontent.com/nickjalbert/agentos/nj_registry/registry.yaml
 
