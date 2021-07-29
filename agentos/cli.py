@@ -469,9 +469,10 @@ def _run(
         mean = statistics.mean(all_steps)
         median = statistics.median(all_steps)
         print()
+        print(f"Benchmark results after {len(all_steps)} rollouts:")
         print(
-            f"Agent trained for {agent.get_step_count()} steps "
-            f"({agent.get_episode_count()} episodes):"
+            f"\tBenchmarked agent was trained on {agent.get_step_count()} "
+            f"transitions over {agent.get_episode_count()} episodes"
         )
         print(f"\tMax steps over {iterations} trials: {max(all_steps)}")
         print(f"\tMean steps over {iterations} trials: {mean}")
