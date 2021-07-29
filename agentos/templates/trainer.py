@@ -2,6 +2,6 @@
 import agentos
 
 
-# A basic trainer 
+# A basic trainer
 class BasicTrainer(agentos.Trainer):
     pass

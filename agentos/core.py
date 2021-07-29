@@ -51,20 +51,18 @@ class Agent(MemberInitializer):
         self.curr_obs = None
         self._should_reset = True
 
-    def step(self, should_learn=False):
+    def step(self):
         """Takes one action within the environment"""
         if self._should_reset:
             self.curr_obs = self.environment.reset()
             self._should_reset = False
-            if should_learn:
-                self.policy.observe(None, self.curr_obs, None, None, {})
+            self.dataset.add(None, None, self.curr_obs, None, None, {})
         action = self.policy.decide(
             self.curr_obs, self.environment.valid_actions
         )
         prev_obs = self.curr_obs
         self.curr_obs, reward, done, info = self.environment.step(action)
-        if should_learn:
-            self.policy.observe(action, self.curr_obs, reward, done, info)
+        self.dataset.add(prev_obs, action, self.curr_obs, reward, done, info)
         if done:
             self._should_reset = True
         return prev_obs, action, self.curr_obs, reward, done, info
@@ -74,16 +72,15 @@ class Agent(MemberInitializer):
         done = False
         step_count = 0
         while not done:
-            prev_obs, action, curr_obs, reward, done, info = self.step(
-                should_learn
-            )
+            _, _, _, _, done, _ = self.step()
             step_count += 1
         if should_learn:
-            self.policy.improve()
+            self.trainer.improve(self.dataset, self.policy)
             prev_step_count = self.get_step_count()
             prev_episode_count = self.get_episode_count()
             self.save_step_count(prev_step_count + step_count)
             self.save_episode_count(prev_episode_count + 1)
+        return step_count
 
     def advance(self):
         """Returns True when agent is done; False or None otherwise."""
@@ -123,25 +120,15 @@ class Policy(MemberInitializer):
         """
         raise NotImplementedError
 
-    def improve(self, **kwargs):
-        """Improves the policy based on the agent's experience."""
-        pass
-
-    def observe(self, action, observation, reward, done, info):
-        """Observes the transition that resulted from the action"""
-        pass
-
 
 class Trainer(MemberInitializer):
-    pass
+    def improve(self, dataset, policy):
+        pass
 
 
 class Dataset(MemberInitializer):
-    pass
-
-
-class Network(MemberInitializer):
-    pass
+    def add(self, prev_obs, action, curr_obs, reward, done, info):
+        pass
 
 
 # Inspired by OpenAI's gym.Env

@@ -12,6 +12,9 @@
 // 3. Get agent working (maybe improve testing and training feedback)
 4. Componentize R2D2
 
+Killing and reloading the reverb server when we reload the agent...good or bad?
+Reimplement Hz and max_iterations
+
 * Logger object
 * Unify run loops
 

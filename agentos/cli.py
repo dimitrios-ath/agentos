@@ -299,10 +299,16 @@ def load_agent_from_path(agent_file, package_location, verbose):
     environment_spec = environment.get_spec()
     policy_cls = get_class_from_config(agent_dir_path, config["Policy"])
     policy = policy_cls(environment_spec=environment_spec, **config["Policy"])
+    dataset_cls = get_class_from_config(agent_dir_path, config["Dataset"])
+    dataset = dataset_cls(**config["Dataset"])
+    trainer_cls = get_class_from_config(agent_dir_path, config["Trainer"])
+    trainer = trainer_cls(**config["Trainer"])
 
     agent_kwargs = {
         "environment": environment,
         "policy": policy,
+        "dataset": dataset,
+        "trainer": trainer,
         "verbose": verbose,
         **config["Agent"],
     }
@@ -354,22 +360,22 @@ def back_up_agent(agent, package_location):
     default="./.acr",
     help="Path to AgentOS Component Registry installation directory",
 )
-@click.option(
-    "--hz",
-    "-h",
-    metavar="HZ",
-    default=None,
-    type=int,
-    help="Frequency to call agent.advance().",
-)
-@click.option(
-    "--max-iterations",
-    "-m",
-    metavar="MAX_STEPS",
-    type=int,
-    default=None,
-    help="Stop running agent after this many calls to advance().",
-)
+# @click.option(
+#     "--hz",
+#     "-h",
+#     metavar="HZ",
+#     default=None,
+#     type=int,
+#     help="Frequency to call agent.advance().",
+# )
+# @click.option(
+#     "--max-iterations",
+#     "-m",
+#     metavar="MAX_STEPS",
+#     type=int,
+#     default=None,
+#     help="Stop running agent after this many calls to advance().",
+# )
 @click.option(
     "--verbose",
     "-v",
@@ -383,9 +389,10 @@ def learn(**kwargs):
     test_episodes = kwargs["test_episodes"]
     agent_file = kwargs["agent_file"]
     package_location = kwargs["package_location"]
-    hz = kwargs["hz"]
-    max_iterations = kwargs["max_iterations"]
+    # hz = kwargs["hz"]
+    # max_iterations = kwargs["max_iterations"]
     verbose = kwargs["verbose"]
+    should_learn = True
     agent = load_agent_from_path(agent_file, package_location, verbose)
 
     for i in range(iterations):
@@ -395,14 +402,14 @@ def learn(**kwargs):
                 test_episodes,
                 agent_file,
                 package_location,
-                hz,
-                max_iterations,
+                should_learn,
                 verbose,
                 backup_dst=backup_dst,
             )
         agent.learn()
 
 
+# TODO - reimplement HZ and MaxIterations
 @agentos_cmd.command()
 @click.option(
     "--iterations",
@@ -426,47 +433,46 @@ def learn(**kwargs):
     default="./.acr",
     help="Path to AgentOS Component Registry installation directory",
 )
-@click.option(
-    "--hz",
-    "-h",
-    metavar="HZ",
-    default=None,
-    type=int,
-    help="Frequency to call agent.advance().",
-)
-@click.option(
-    "--max-iterations",
-    "-m",
-    metavar="MAX_STEPS",
-    type=int,
-    default=None,
-    help="Stop running agent after this many calls to advance().",
-)
+# @click.option(
+#     "--hz",
+#     "-h",
+#     metavar="HZ",
+#     default=None,
+#     type=int,
+#     help="Frequency to call agent.advance().",
+# )
+# @click.option(
+#     "--max-iterations",
+#     "-m",
+#     metavar="MAX_STEPS",
+#     type=int,
+#     default=None,
+#     help="Stop running agent after this many calls to advance().",
+# )
 @click.option(
     "--verbose",
     "-v",
     is_flag=True,
     help="Agent prints verbose logs.",
 )
-def run(iterations, agent_file, package_location, hz, max_iterations, verbose):
+def run(iterations, agent_file, package_location, verbose):
     """Run an agent by calling advance() on it until it returns True"""
-    _run(iterations, agent_file, package_location, hz, max_iterations, verbose)
+    should_learn = False
+    _run(iterations, agent_file, package_location, should_learn, verbose)
 
 
 def _run(
     iterations,
     agent_file,
     package_location,
-    hz,
-    max_iterations,
+    should_learn,
     verbose,
     backup_dst=None,
 ):
     all_steps = []
+    agent = load_agent_from_path(agent_file, package_location, verbose)
     for i in range(iterations):
-        # TODO - A faster way to reset the agent isntead of reloading
-        agent = load_agent_from_path(agent_file, package_location, verbose)
-        steps = agentos.run_agent(agent, hz=hz, max_iters=max_iterations)
+        steps = agent.rollout(should_learn)
         all_steps.append(steps)
 
     if all_steps:
