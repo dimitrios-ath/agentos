@@ -16,9 +16,12 @@ class MemberInitializer:
 
     @classmethod
     def ready_to_initialize(cls, shared_data):
+        """Allows you to check shared_data for all your requirements before you
+        get initialized"""
         return True
 
     def __init__(self, **kwargs):
+        """Sets all the kwargs as members on the class"""
         for k, v in kwargs.items():
             setattr(self, k, v)
 
