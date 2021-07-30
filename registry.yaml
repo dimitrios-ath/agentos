@@ -29,7 +29,7 @@ cartpole:
   description: "Balancing a pole on a cart"
   releases:
     - name: 1.0.0
-      hash: da78f011a5308f2428eaa12fc19fef309ffe29b0
+      hash: a97f8bb384e01d7ecc173bedacaa5df39f336c96
       github_url: https://github.com/nickjalbert/cartpole
       file_path: cartpole.py
       class_name: CartPole
@@ -41,7 +41,7 @@ acme_r2d2:
   description: "R2D2 policy ported from Acme framework"
   releases:
     - name: 1.0.0
-      hash: 0eb26fef01a235b1c627bbe9c04776459c5560f5
+      hash: 7258e03d7fa72ed87be2dc577c233256152c8d66
       github_url: https://github.com/nickjalbert/r2d2
       file_path: policy.py
       class_name: R2D2Policy
@@ -53,7 +53,7 @@ acme_reverb_dataset:
   description: "Reverb server tuned to work with Acme R2D2"
   releases:
     - name: 1.0.0
-      hash: cfc38a6847c0c71f458cb953eca5abdd17cab288
+      hash: 94a5ed67a770b6b6317892995b761e90ae23f694
       github_url: https://github.com/nickjalbert/reverb_dataset
       file_path: dataset.py
       class_name: ReverbDataset
@@ -65,7 +65,7 @@ acme_r2d2_trainer:
   description: "Trainer to improve the Acme R2D2 policy"
   releases:
     - name: 1.0.0
-      hash: 4cb60a851f37ff316c626394266d1cd79fab3acc
+      hash: 7d899607fb80e1f056ca11150d6ad94232711c8c
       github_url: https://github.com/nickjalbert/r2d2_trainer
       file_path: trainer.py
       class_name: R2D2Trainer
