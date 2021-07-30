@@ -34,17 +34,31 @@
   also more complex structures).  How does AOS facillitate this sharing?
 * **ISSUE** Observation and transition adding is piped through the actor
   because we want the recurrent state
-* **ISSUE** Observation and transition adding is piped through the actor
-  because we want the recurrent state
-* TODO - port init agent
+* // TODO - port init agent
 
 
 **ISSUES**
-* Pushing recurrent state between the actor and the dataset is hacky
-* Pushing num_observations from dataset to trainer is hacky
+* Pushing recurrent state between the actor and the dataset via shared_data is
+  hacky
+* Pushing num_observations from dataset to trainer via shared_data is hacky
 * Actor.update() is not implemented (but I think it's only needed when
   distributed since currently the learner and actor share a network)
-* I have no idea how i'll debug this
+* How to handle distributed and offline
+* I have no idea how I'll debug this
+* Without clearly defined APIs, components will be less modular (shared_data
+  isn't a great solution)
+* It feels weird/not great to install 4 different components that depend on
+  intricacies of each other (unclear if any subset of three can function)
+
+TODO -
+* Let's define APIs better or componentize at a finer level so we solve the
+  recurrent state issue and the num_obs issue.  Also, put them in a
+  presentation for the group.
+* Let's clean up our components so it's easier to see what they're doing
+* Make the dependency system nicer (enforce dependencies, better checking)
+* Actually test the agent; is it learning?
+* I think the metrics system might be whacky (why did we train on 5301 episodes?)
+
 
 TO TEST -
 * "Smart" initialization ordering
