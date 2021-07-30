@@ -51,6 +51,7 @@
   intricacies of each other (unclear if any subset of three can function)
 
 TODO -
+* Rollouts during a run are getting counted towards training episodes in the stats
 * Let's define APIs better or componentize at a finer level so we solve the
   recurrent state issue and the num_obs issue.  Also, put them in a
   presentation for the group.
