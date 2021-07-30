@@ -19,8 +19,13 @@
 
 * The top-level problem is components share dependencies (data, but also more complex structures).  How does AOS facillitate this sharing?
 * Observation and transition adding is piped through the actor because we want the recurrent state
+* TODO - port init agent
 
-
+TO TEST -
+* "Smart" initialization ordering
+* basic agent instantiation (init)
+* basic agent run (run)
+* basic agent learn (learn)
 
 ## TODO
 

@@ -6,8 +6,8 @@ from dm_env import specs
 
 # Simulates a 1D corridor
 class Corridor(agentos.Environment):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.length = 5
         self.action_space = [0, 1]
         self.observation_space = [0, 1, 2, 3, 4, 5]

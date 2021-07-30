@@ -13,11 +13,12 @@ class MemberInitializer:
     a = MyClass(foo='bar')
     assert a.foo == 'bar'
     """
-    @classmethod
-    def before_instantiation(cls, shared_data, **kwargs):
-        pass
 
-    def __init__(self, shared_data, **kwargs):
+    @classmethod
+    def ready_to_initialize(cls, shared_data):
+        return True
+
+    def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -49,7 +50,7 @@ class Agent(MemberInitializer):
     learning, use of models, state updates, etc.
     """
 
-    def __init__(self, shared_data, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.curr_obs = None
         self._should_reset = True
@@ -109,7 +110,7 @@ class Policy(MemberInitializer):
     to decide on a next action given the last observation from an env.
     """
 
-    def __init__(self, shared_data, **kwargs):
+    def __init__(self, **kwargs):
         pass
 
     def decide(self, observation, actions, should_learn=False):
@@ -139,7 +140,7 @@ class Dataset(MemberInitializer):
 class Environment(MemberInitializer):
     """Minimalist port of OpenAI's gym.Env."""
 
-    def __init__(self, shared_data, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.action_space = None
         self.observation_space = None
