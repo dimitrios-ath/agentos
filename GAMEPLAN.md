@@ -3,23 +3,48 @@
 * Developing AOS while developing components (e.g. componentizing r2d2 while
   AOS interface is unstable)
 * I changed something, does my agent still work? (mini benchmark?)
-* Developing multiple components simultaneously is a pain (working 5 different repos simultaneously--agentos, cartpole, r2d2_policy, r2d2_trainer, r2d2_dataset)
+* Developing multiple components simultaneously is a pain (working 5 different
+  repos simultaneously--agentos, cartpole, r2d2_policy, r2d2_trainer,
+  r2d2_dataset).  Envisioning the dataflow can be complicated. Harmonizing
+  dependencies can also be complicated.
+
 
 ## Notes 7/30/21
 
 * Trainer wants an env spec; pass during initialization
-* Difficulty - sharing models between components (both policy and trainer want to ref the same network)
-* Difficulty - trainer and dataset want to share derived parameters (sequence_length)
+* Difficulty - sharing models between components (both policy and trainer want
+  to ref the same network)
+* Difficulty - trainer and dataset want to share derived parameters
+  (sequence_length)
     * Soln: before_instantiation
-    * Environment spec has to be in shared data (which is okay, because it can use shared data to initialize based on params) because dataset needs access
-    * Environment.get_spec() is now a classmethod to support getting it before instantiation
+    * Environment spec has to be in shared data (which is okay, because it can
+      use shared data to initialize based on params) because dataset needs
+      access
+    * Environment.get_spec() is now a classmethod to support getting it before
+      instantiation
     * Each component has global config and local config (?)
     * Another way - allow ordering of component initialization
     * Another another way - allow specification of requirements
+        * Maybe ready_to_initialize should return a list of parameters needed
+          in shared data for better debugging?
+        * Each component notes data it will share and data is requires, ensure
+          no conflicts and only required data is accessed
 
-* The top-level problem is components share dependencies (data, but also more complex structures).  How does AOS facillitate this sharing?
-* Observation and transition adding is piped through the actor because we want the recurrent state
+* **ISSUE** The top-level problem is components share dependencies (data, but
+  also more complex structures).  How does AOS facillitate this sharing?
+* **ISSUE** Observation and transition adding is piped through the actor
+  because we want the recurrent state
+* **ISSUE** Observation and transition adding is piped through the actor
+  because we want the recurrent state
 * TODO - port init agent
+
+
+**ISSUES**
+* Pushing recurrent state between the actor and the dataset is hacky
+* Pushing num_observations from dataset to trainer is hacky
+* Actor.update() is not implemented (but I think it's only needed when
+  distributed since currently the learner and actor share a network)
+* I have no idea how i'll debug this
 
 TO TEST -
 * "Smart" initialization ordering

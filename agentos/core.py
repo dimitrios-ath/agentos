@@ -113,9 +113,6 @@ class Policy(MemberInitializer):
     to decide on a next action given the last observation from an env.
     """
 
-    def __init__(self, **kwargs):
-        pass
-
     def decide(self, observation, actions, should_learn=False):
         """Takes an observation and returns next action to take.
 
@@ -166,8 +163,7 @@ class Environment(MemberInitializer):
     def seed(self, seed):
         raise NotImplementedError
 
-    @classmethod
-    def get_spec(cls):
+    def get_spec(self):
         raise NotImplementedError
 
 
