@@ -13,8 +13,11 @@ class MemberInitializer:
     a = MyClass(foo='bar')
     assert a.foo == 'bar'
     """
+    @classmethod
+    def before_instantiation(cls, shared_data, **kwargs):
+        pass
 
-    def __init__(self, **kwargs):
+    def __init__(self, shared_data, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -46,7 +49,7 @@ class Agent(MemberInitializer):
     learning, use of models, state updates, etc.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, shared_data, **kwargs):
         super().__init__(**kwargs)
         self.curr_obs = None
         self._should_reset = True
@@ -106,7 +109,7 @@ class Policy(MemberInitializer):
     to decide on a next action given the last observation from an env.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, shared_data, **kwargs):
         pass
 
     def decide(self, observation, actions, should_learn=False):
@@ -136,7 +139,7 @@ class Dataset(MemberInitializer):
 class Environment(MemberInitializer):
     """Minimalist port of OpenAI's gym.Env."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, shared_data, **kwargs):
         super().__init__(**kwargs)
         self.action_space = None
         self.observation_space = None
@@ -157,6 +160,10 @@ class Environment(MemberInitializer):
         pass
 
     def seed(self, seed):
+        raise NotImplementedError
+
+    @classmethod
+    def get_spec(cls):
         raise NotImplementedError
 
 

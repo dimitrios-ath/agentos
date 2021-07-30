@@ -3,6 +3,23 @@
 * Developing AOS while developing components (e.g. componentizing r2d2 while
   AOS interface is unstable)
 * I changed something, does my agent still work? (mini benchmark?)
+* Developing multiple components simultaneously is a pain (working 5 different repos simultaneously--agentos, cartpole, r2d2_policy, r2d2_trainer, r2d2_dataset)
+
+## Notes 7/30/21
+
+* Trainer wants an env spec; pass during initialization
+* Difficulty - sharing models between components (both policy and trainer want to ref the same network)
+* Difficulty - trainer and dataset want to share derived parameters (sequence_length)
+    * Soln: before_instantiation
+    * Environment spec has to be in shared data (which is okay, because it can use shared data to initialize based on params) because dataset needs access
+    * Environment.get_spec() is now a classmethod to support getting it before instantiation
+    * Each component has global config and local config (?)
+    * Another way - allow ordering of component initialization
+    * Another another way - allow specification of requirements
+
+* The top-level problem is components share dependencies (data, but also more complex structures).  How does AOS facillitate this sharing?
+* Observation and transition adding is piped through the actor because we want the recurrent state
+
 
 
 ## TODO

@@ -297,22 +297,51 @@ def load_agent_from_path(agent_file, package_location, verbose):
 
     decorate_save_data_fns(package_location)
 
-    agent_cls = get_class_from_config(agent_dir_path, config["Agent"])
     env_cls = get_class_from_config(agent_dir_path, config["Environment"])
-    environment = env_cls(**config["Environment"])
-    environment_spec = environment.get_spec()
     policy_cls = get_class_from_config(agent_dir_path, config["Policy"])
-    policy = policy_cls(environment_spec=environment_spec, **config["Policy"])
     dataset_cls = get_class_from_config(agent_dir_path, config["Dataset"])
-    dataset = dataset_cls(**config["Dataset"])
     trainer_cls = get_class_from_config(agent_dir_path, config["Trainer"])
-    trainer = trainer_cls(**config["Trainer"])
+    agent_cls = get_class_from_config(agent_dir_path, config["Agent"])
+
+    agent_kwargs = {}
+    shared_data = {}
+    component_cls = {
+            'environment': env_cls, 
+            'policy': policy_cls,
+            'dataset': dataset_cls,
+            'trainer': trainer_cls
+    }
+    while len(component_cls) > 0:
+        to_initialize_name = None
+        to_initialize_cls = None
+        for name, cls in component_cls:
+            if cls.can_initialize(shared_data):
+                to_initialize_name = name
+                to_initiaize_cls = cls
+                break
+        if to_initialize_name is None or to_initialize_cls is None:
+            exc_msg = (
+                    "Could not find component ready to initialize.  "
+                    "Perhaps there is a circular dependency?  "
+                    f"Remaining components: {component_cls}"
+            )
+            raise Exception(exc_msg)
+
+        del component_cls[to_initialize_name]
+        agent_kwargs[to_initialize_name] = to_initialize_cls(
+                shared_data=shared_data,
+                **config[to_initialize_name.capitalize()]
+        )
+
+
+
+
+
+
 
     agent_kwargs = {
-        "environment": environment,
-        "policy": policy,
-        "dataset": dataset,
-        "trainer": trainer,
+        "shared_data": shared_data,
+        **agent_kwargs,
         "verbose": verbose,
         **config["Agent"],
     }
