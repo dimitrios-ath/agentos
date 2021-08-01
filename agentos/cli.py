@@ -418,7 +418,7 @@ def learn(**kwargs):
     # hz = kwargs["hz"]
     # max_iterations = kwargs["max_iterations"]
     verbose = kwargs["verbose"]
-    should_learn = True
+    should_learn = False
     agent = load_agent_from_path(agent_file, package_location, verbose)
 
     for i in range(iterations):

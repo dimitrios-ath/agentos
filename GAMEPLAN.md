@@ -1,3 +1,14 @@
+## Agent script
+
+mkdir dev_agent
+cd dev_agent
+agentos init .
+agentos install acme_r2d2
+agentos install acme_reverb_dataset
+agentos install acme_r2d2_trainer
+agentos install cartpole
+
+
 ## Pain points 
 
 * Developing AOS while developing components (e.g. componentizing r2d2 while
