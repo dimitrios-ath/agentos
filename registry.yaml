@@ -41,7 +41,7 @@ acme_r2d2:
   description: "R2D2 policy ported from Acme framework"
   releases:
     - name: 1.0.0
-      hash: 7258e03d7fa72ed87be2dc577c233256152c8d66
+      hash: 2c3f275596e94517c49360c43deed6a32bdbff14
       github_url: https://github.com/nickjalbert/r2d2
       file_path: policy.py
       class_name: R2D2Policy
@@ -53,7 +53,7 @@ acme_reverb_dataset:
   description: "Reverb server tuned to work with Acme R2D2"
   releases:
     - name: 1.0.0
-      hash: 94a5ed67a770b6b6317892995b761e90ae23f694
+      hash: 3da196271fd9f926f4aac208c9d107206a8b2c58
       github_url: https://github.com/nickjalbert/reverb_dataset
       file_path: dataset.py
       class_name: ReverbDataset
