@@ -28,6 +28,11 @@ agentos install cartpole
 * Move the "next()" in the Dataset
 * I want to eliminate the internal pointers between dataset and trainer so AOS
   controls everything.
+    * Trainer has a pointer to reverb_client because it updates the items'
+      priorities (which is based on their prediction error) directly through
+      the client:
+      https://github.com/deepmind/acme/blob/master/acme/agents/tf/r2d2/learning.py#L197
+    * Trainer has a dataset pointer to draw a sample from the dataset
 * I think we're training seemingly slowly because we're not stepping
   (potentially) after every observation.  Let's root around and discover if
   that's 1) true and 2) something we should change (or make configurable) in
