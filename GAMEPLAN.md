@@ -19,6 +19,29 @@ agentos install cartpole
   r2d2_dataset).  Envisioning the dataflow can be complicated. Harmonizing
   dependencies can also be complicated.
 
+## NEXT UP (8/3/2021)
+
+### Small but concrete things
+
+* Implementing a functioning managed parameter space will clean up the
+  components a lot.  How to do derived parameters?
+* Move the "next()" in the Dataset
+* I want to eliminate the internal pointers between dataset and trainer so AOS
+  controls everything.
+* I think we're training seemingly slowly because we're not stepping
+  (potentially) after every observation.  Let's root around and discover if
+  that's 1) true and 2) something we should change (or make configuarable) in
+  AOS.
+
+### Larger, less concrete
+
+* Think more about shared data and the guaranteees (or lack thereof) it
+  provides
+* Maybe recurrent state is better as an {info dict} pushed around in the
+  "happy" flow?
+* Next big value add: learning and porting another (acme? rllib?) algo to the
+  current componentization.  Where are the difficulties?
+
 
 ## Notes 7/30/21
 
