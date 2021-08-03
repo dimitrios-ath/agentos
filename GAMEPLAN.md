@@ -33,6 +33,7 @@ agentos install cartpole
   that's 1) true and 2) something we should change (or make configuarable) in
   AOS.
 
+
 ### Larger, less concrete
 
 * Think more about shared data and the guaranteees (or lack thereof) it
@@ -41,6 +42,8 @@ agentos install cartpole
   "happy" flow?
 * Next big value add: learning and porting another (acme? rllib?) algo to the
   current componentization.  Where are the difficulties?
+* It would be interesting to test an agent against its uncomponentized
+  competitor (feeding it the same inputs) to catch bugs
 
 
 ## Notes 7/30/21
