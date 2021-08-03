@@ -21,7 +21,7 @@ agentos install cartpole
 
 ## NEXT UP (8/3/2021)
 
-### Small but concrete things
+### Small and concrete
 
 * Implementing a functioning managed parameter space will clean up the
   components a lot.  How to do derived parameters?
@@ -30,13 +30,13 @@ agentos install cartpole
   controls everything.
 * I think we're training seemingly slowly because we're not stepping
   (potentially) after every observation.  Let's root around and discover if
-  that's 1) true and 2) something we should change (or make configuarable) in
+  that's 1) true and 2) something we should change (or make configurable) in
   AOS.
 
 
-### Larger, less concrete
+### Larger but less concrete
 
-* Think more about shared data and the guaranteees (or lack thereof) it
+* Think more about shared data and the guarantees (or lack thereof) it
   provides
 * Maybe recurrent state is better as an {info dict} pushed around in the
   "happy" flow?
@@ -44,6 +44,7 @@ agentos install cartpole
   current componentization.  Where are the difficulties?
 * It would be interesting to test an agent against its uncomponentized
   competitor (feeding it the same inputs) to catch bugs
+* How to handle offline?  How to handle distributed?
 
 
 ## Notes 7/30/21
