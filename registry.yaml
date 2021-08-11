@@ -34,7 +34,7 @@ cartpole:
       file_path: cartpole.py
       class_name: CartPole
       requirements_path: requirements.txt
-acme_r2d2:
+acme_r2d2_policy:
   type: policy
   agent_os_versions:
     - 0.0.7
@@ -46,7 +46,7 @@ acme_r2d2:
       file_path: policy.py
       class_name: R2D2Policy
       requirements_path: requirements.txt
-acme_reverb_dataset:
+acme_r2d2_dataset:
   type: dataset
   agent_os_versions:
     - 0.0.7
