@@ -235,7 +235,7 @@ def list(agent_file):
     agent_ini.read(agent_file)
     for component in agent_ini:
         if "class_name" in agent_ini[component]:
-            print(agent_ini[component]["class_name"])
+            print(f"{component}: {agent_ini[component]['class_name']}")
 
 
 @agentos_cmd.command()
