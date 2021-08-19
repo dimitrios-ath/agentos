@@ -72,7 +72,9 @@ def agentos_cmd():
     help="Path to agent definition file (agent.ini).",
 )
 def install(package_name, package_location, agent_file):
-    """Installs PACKAGE_NAME"""
+    """Installs PACKAGE_NAME.
+
+    By default, searches AgentOS Component Registry."""
     package_location = Path(package_location).absolute()
     registry_entry = get_registry_entry(package_name)
     if confirm_package_installation(registry_entry, package_location):
@@ -216,6 +218,24 @@ def instantiate_template_files(d, agent_name):
                         os_sep=os.sep,
                     )
                 )
+
+
+@agentos_cmd.command()
+@click.option(
+    "--agent-file",
+    "-f",
+    type=click.Path(exists=True),
+    default="./agent.ini",
+    help="Path to agent definition file (agent.ini).",
+)
+def list(agent_file):
+    """List the currenly installed components."""
+
+    agent_ini = configparser.ConfigParser()
+    agent_ini.read(agent_file)
+    for component in agent_ini:
+        if "class_name" in agent_ini[component]:
+            print(agent_ini[component]["class_name"])
 
 
 @agentos_cmd.command()
