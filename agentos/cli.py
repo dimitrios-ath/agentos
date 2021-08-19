@@ -455,7 +455,7 @@ def learn(**kwargs):
         agent.learn()
 
 
-# TODO - reimplement HZ and MaxIterations
+# TODO - reimplement HZ and MAX_STEPS
 @agentos_cmd.command()
 @click.option(
     "--iterations",
@@ -488,7 +488,7 @@ def learn(**kwargs):
 #     help="Frequency to call agent.advance().",
 # )
 # @click.option(
-#     "--max-iterations",
+#     "--max-steps",
 #     "-m",
 #     metavar="MAX_STEPS",
 #     type=int,

@@ -26,8 +26,9 @@ class MemberInitializer:
             setattr(self, k, v)
 
 
-class Agent(MemberInitializer):
-    """An Agent observes and takes actions in its environment till done.
+class Coordinator(MemberInitializer):
+    """A Coordinator exposes a standard interface that AgentOS can us to
+    interact with the components necessary to train or use an agent.
 
     An agent holds an environment ``self.env``, which it can use
     to observe and act by calling ``self.env.step()`` that takes
