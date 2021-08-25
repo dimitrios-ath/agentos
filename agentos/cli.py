@@ -155,7 +155,7 @@ def update_agent_ini(registry_entry, release_entry, repo, agent_file):
     elif registry_entry["type"] == "trainer":
         section = "Trainer"
     else:
-        raise Exception(f"Component component type: {registry_entry['type']}")
+        raise Exception(f"Unknown component type: {registry_entry['type']}")
 
     # TODO - allow multiple components of same type installed
     if section in config:
