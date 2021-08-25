@@ -26,8 +26,8 @@ class MemberInitializer:
             setattr(self, k, v)
 
 
-class Coordinator(MemberInitializer):
-    """A Coordinator exposes a standard interface that AgentOS can us to
+class Agent(MemberInitializer):
+    """An agent exposes a standard interface that AgentOS can us to
     interact with the components necessary to train or use an agent.
 
     An agent holds an environment ``self.env``, which it can use
