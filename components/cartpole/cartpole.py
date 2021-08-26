@@ -6,19 +6,20 @@ from dm_env import specs
 import numpy as np
 
 
-class CartPole(agentos.Environment, CartPoleEnv):
+class CartPole(CartPoleEnv, agentos.Environment):
     @classmethod
     def ready_to_initialize(cls, shared_data):
         return True
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        agentos.Environment.__init__(self, **kwargs)
+        CartPoleEnv.__init__(self)
         if hasattr(self, 'shared_data'):
             self.shared_data["environment_spec"] = self.get_spec()
 
     def step(self, action):
         assert action in [0, 1]
-        result = CartPoleEnv.step(action)
+        result = CartPoleEnv.step(self, action)
         self.last_obs, self.last_reward, self.done, self.info = result
         # FIXME - this cast makes it match spec
         return (

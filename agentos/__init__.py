@@ -16,7 +16,10 @@ from agentos.core import (
     restore_data,
     restore_tensorflow,
 )
-
+from agentos.cli import (
+    run,
+    load_agent_from_path,
+)
 __all__ = [
     "Agent",
     "Policy",

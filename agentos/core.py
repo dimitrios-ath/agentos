@@ -3,6 +3,7 @@ import time
 from threading import Thread
 from collections import namedtuple
 import pickle
+import statistics
 
 
 class MemberInitializer:
@@ -161,7 +162,7 @@ class Environment(MemberInitializer):
     def close(self, mode):
         pass
 
-    def seed(self, seed):
+    def seed(self, seed=None):
         raise NotImplementedError
 
     def get_spec(self):
@@ -208,7 +209,36 @@ def restore_data(name):
         return pickle.load(f)
 
 
-def run_agent(agent, hz=40, max_iters=None, as_thread=False):
+def run_agent(
+        iterations,
+        agent,
+        should_learn,
+        backup_dst=None,
+):
+    all_steps = []
+    for i in range(iterations):
+        steps = agent.rollout(should_learn)
+        all_steps.append(steps)
+
+    if all_steps:
+        mean = statistics.mean(all_steps)
+        median = statistics.median(all_steps)
+        print()
+        print(f"Benchmark results after {len(all_steps)} rollouts:")
+        print(
+            f"\tBenchmarked agent was trained on {agent.get_step_count()} "
+            f"transitions over {agent.get_episode_count()} episodes"
+        )
+        print(f"\tMax steps over {iterations} trials: {max(all_steps)}")
+        print(f"\tMean steps over {iterations} trials: {mean}")
+        print(f"\tMedian steps over {iterations} trials: {median}")
+        print(f"\tMin steps over {iterations} trials: {min(all_steps)}")
+        if backup_dst:
+            print(f"Agent backed up in {backup_dst}")
+        print()
+
+
+def run_agent_old(agent, hz=40, max_iters=None, as_thread=False):
     """Run an agent, optionally in a new thread.
 
     If as_thread is True, agent is run in a thread, and the

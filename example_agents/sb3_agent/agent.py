@@ -21,7 +21,7 @@ class SB3PPOAgent(agentos.Agent):
             self.curr_obs = self.environment.reset()
             self._should_reset = False
             self.dataset.add(None, None, self.curr_obs, None, None, {})
-        action = self.sb3_ppo.predict(self.curr_obs)
+        action = self.sb3_ppo.predict(self.curr_obs)[0]
         prev_obs = self.curr_obs
         self.curr_obs, reward, done, info = self.environment.step(action)
         self.dataset.add(prev_obs, action, self.curr_obs, reward, done, info)

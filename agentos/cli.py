@@ -15,7 +15,6 @@ import importlib.util
 from pathlib import Path
 import configparser
 import importlib
-import statistics
 
 
 CONDA_ENV_FILE = Path("./templates/conda_env.yaml")
@@ -504,39 +503,8 @@ def learn(**kwargs):
 def run(iterations, agent_file, package_location, verbose):
     """Run an agent by calling advance() on it until it returns True"""
     should_learn = False
-    _run(iterations, agent_file, package_location, should_learn, verbose)
-
-
-def _run(
-    iterations,
-    agent_file,
-    package_location,
-    should_learn,
-    verbose,
-    backup_dst=None,
-):
-    all_steps = []
     agent = load_agent_from_path(agent_file, package_location, verbose)
-    for i in range(iterations):
-        steps = agent.rollout(should_learn)
-        all_steps.append(steps)
-
-    if all_steps:
-        mean = statistics.mean(all_steps)
-        median = statistics.median(all_steps)
-        print()
-        print(f"Benchmark results after {len(all_steps)} rollouts:")
-        print(
-            f"\tBenchmarked agent was trained on {agent.get_step_count()} "
-            f"transitions over {agent.get_episode_count()} episodes"
-        )
-        print(f"\tMax steps over {iterations} trials: {max(all_steps)}")
-        print(f"\tMean steps over {iterations} trials: {mean}")
-        print(f"\tMedian steps over {iterations} trials: {median}")
-        print(f"\tMin steps over {iterations} trials: {min(all_steps)}")
-        if backup_dst:
-            print(f"Agent backed up in {backup_dst}")
-        print()
+    agentos.run_agent(iterations, agent, should_learn)
 
 
 if __name__ == "__main__":
