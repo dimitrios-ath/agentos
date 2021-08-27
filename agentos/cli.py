@@ -308,11 +308,11 @@ def decorate_save_data_fns(package_location):
     agentos.__dict__["restore_tensorflow"].__dict__["data_location"] = dl
 
 
-def load_agent_from_path(agent_file, package_location, verbose):
-    agent_path = Path(agent_file)
-    agent_dir_path = agent_path.parent.absolute()
+def load_components_from_path(component_file, package_location, verbose):
+    manifest_path = Path(component_file)
+    agent_dir_path = manifest_path.parent.absolute()
     config = configparser.ConfigParser()
-    config.read(agent_path)
+    config.read(manifest_path)
 
     decorate_save_data_fns(package_location)
 
