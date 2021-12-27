@@ -12,10 +12,15 @@ from mlflow.entities import Run as MLflowRun
 from agentos.registry import Registry, web_registry
 from agentos.parameter_set import ParameterSet
 from agentos.repo import BadGitStateException, NoLocalPathException
+from agentos.specs import RunSpec
 
 # Avoids cicular imports
 if TYPE_CHECKING:
     from agentos import Component
+
+# MLflow uses strings as Run identifiers, per
+# https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/entities/run_info.py#L99
+RunIdentifier = str
 
 
 class Run:
@@ -28,6 +33,12 @@ class Run:
 
     def __init__(self, mlflow_run: MLflowRun):
         self._mlflow_run = mlflow_run
+
+    @staticmethod
+    def from_registry(
+        run_id: RunIdentifier, registry: Registry = None
+    ) -> "Run":
+        registry.
 
     @staticmethod
     def get_all_runs() -> List["Run"]:
@@ -72,16 +83,16 @@ class Run:
     def active_run(cls):
         return cls(mlflow.active_run())
 
-    @classmethod
-    def log_param(self, name, value):
+    @staticmethod
+    def log_param(name, value):
         mlflow.log_param(name, value)
 
-    @classmethod
-    def log_metric(self, name, value):
+    @staticmethod
+    def log_metric(name, value):
         mlflow.log_metric(name, value)
 
-    @classmethod
-    def set_tag(self, name, value):
+    @staticmethod
+    def set_tag(name, value):
         mlflow.set_tag(name, value)
 
     @classmethod
@@ -192,9 +203,9 @@ class Run:
             filtered_tags["is_publishable"] = self.is_publishable
             print(f"\tRun {self.id}: {filtered_tags}")
         else:
-            pprint.pprint(self.to_dict())
+            pprint.pprint(self.to_spec())
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> RunSpec:
         artifact_paths = [str(p) for p in self._get_artifact_paths()]
         mlflow_info_dict = {
             "artifact_uri": self.mlflow_info.artifact_uri,
@@ -242,9 +253,9 @@ class Run:
     def to_registry(self, registry: Registry) -> str:
         if not self.is_publishable:
             raise Exception("Run not publishable; Spec is not frozen!")
-        result = registry.push_run_data(self.to_dict())
+        result = registry.add_run_spec(self.to_spec())
         run_id = result["id"]
-        registry.push_run_artifacts(run_id, self._get_artifact_paths())
+        registry.add_run_artifacts(run_id, self._get_artifact_paths())
         return run_id
 
     def log_parameter_set(self, params: ParameterSet) -> None:

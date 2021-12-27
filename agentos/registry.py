@@ -10,13 +10,13 @@ import tarfile
 import tempfile
 import requests
 from pathlib import Path
-from typing import Dict, List, Union, TYPE_CHECKING
+from typing import Dict, Sequence, Union, TYPE_CHECKING
 from dotenv import load_dotenv
 from agentos.component_identifier import ComponentIdentifier
 
 if TYPE_CHECKING:
     from agentos.component import Component
-from agentos.specs import RepoSpec, ComponentSpec, NestedComponentSpec
+from agentos.specs import RepoSpec, ComponentSpec, NestedComponentSpec, RunSpec
 
 # add USE_LOCAL_SERVER=True to .env to talk to local server
 load_dotenv()
@@ -151,16 +151,15 @@ class Registry(abc.ABC):
         return self.get_component_spec(identifier.name, identifier.version)
 
     @abc.abstractmethod
-    def get_repo_spec(self, repo_id: str) -> "RepoSpec":
+    def get_repo_spec(self, repo_id: str) -> RepoSpec:
         raise NotImplementedError
 
     @abc.abstractmethod
-    # TODO: replace Dict return type with RunSpec once we have it.
-    def get_run_spec(self, run_id: str) -> Dict:
+    def get_run_spec(self, run_id: str) -> RunSpec:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_registries(self) -> List:
+    def get_registries(self) -> Sequence:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -185,6 +184,10 @@ class Registry(abc.ABC):
     def add_repo_spec(self, repo_spec: RepoSpec) -> None:
         raise NotImplementedError
 
+#    @abc.abstractmethod
+#    def add_run_spec(self, run_spec: RunSpec) -> None:
+#        raise NotImplementedError
+
 
 class InMemoryRegistry(Registry):
     """
@@ -195,11 +198,11 @@ class InMemoryRegistry(Registry):
         super().__init__(base_dir)
         self._registry = input_dict if input_dict else {}
         if "components" not in self._registry.keys():
-            self._registry["components"] = {}
+            self._registry["component_specs"] = {}
         if "repos" not in self._registry.keys():
-            self._registry["repos"] = {}
+            self._registry["repo_specs"] = {}
         if "runs" not in self._registry.keys():
-            self._registry["runs"] = {}
+            self._registry["run_specs"] = {}
         if "registries" not in self._registry.keys():
             self._registry["registries"] = []
 
@@ -209,7 +212,7 @@ class InMemoryRegistry(Registry):
         if filter_by_name or filter_by_version:
             try:
                 components = {}
-                for k, v in self._registry["components"].items():
+                for k, v in self._registry["component_specs"].items():
                     candidate_id = ComponentIdentifier.from_str(k)
                     passes_filter = True
                     if filter_by_name and candidate_id.name != filter_by_name:
@@ -224,22 +227,25 @@ class InMemoryRegistry(Registry):
                 return components
             except KeyError:
                 return {}
-        return self._registry["components"]
+        return self._registry["component_specs"]
 
     def get_repo_spec(self, repo_id: str) -> "RepoSpec":
-        return self._registry["repos"][repo_id]
+        return self._registry["repo_specs"][repo_id]
 
     def get_run_spec(self, run_id: str) -> Dict:
-        return self._registry["runs"][run_id]
+        return self._registry["run_specs"][run_id]
 
-    def get_registries(self) -> List[Registry]:
+    def get_registries(self) -> Sequence[Registry]:
         return self._registry["registries"]
 
     def add_component_spec(self, component_spec: NestedComponentSpec) -> None:
-        self._registry["components"].update(component_spec)
+        self._registry["component_specs"].update(component_spec)
 
     def add_repo_spec(self, repo_spec: RepoSpec) -> None:
-        self._registry["repos"].update(repo_spec)
+        self._registry["repo_specs"].update(repo_spec)
+
+    def add_run_spec(self, run_spec: RunSpec) -> None:
+        self._registry["run_specs"].update(run_spec)
 
     def to_dict(self) -> Dict:
         return self._registry
@@ -278,7 +284,7 @@ class WebRegistry(Registry):
     def get_run_spec(self, run_id: str) -> Dict:
         raise NotImplementedError
 
-    def get_registries(self) -> List:
+    def get_registries(self) -> Sequence:
         raise NotImplementedError
 
     def add_repo_spec(self, repo_spec: RepoSpec) -> None:
@@ -302,7 +308,7 @@ class WebRegistry(Registry):
         print()
         return result
 
-    def push_run_data(self, run_data: Dict) -> List:
+    def add_run_spec(self, run_data: Dict) -> List:
         url = f"{self.root_url}/runs/"
         data = {"run_data": yaml.dump(run_data)}
         response = requests.post(url, data=data)
@@ -310,7 +316,9 @@ class WebRegistry(Registry):
         result = json.loads(response.content)
         return result
 
-    def push_run_artifacts(self, run_id: int, run_artifacts: List) -> List:
+    def add_run_artifacts(
+        self, run_id: int, run_artifacts: Sequence
+    ) -> Sequence:
         try:
             tmp_dir_path = Path(tempfile.mkdtemp())
             tar_gz_path = tmp_dir_path / f"run_{run_id}_artifacts.tar.gz"

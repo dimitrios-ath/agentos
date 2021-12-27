@@ -12,3 +12,5 @@ RepoSpec = Mapping[str, Mapping[str, str]]
 # with the following structure:
 # {class_name: {entry_point_name: {param_name: param_val}}
 ParameterSetSpec = Mapping[str, Mapping[str, Mapping[str, str]]]
+
+RunSpec = Mapping

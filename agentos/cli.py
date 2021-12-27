@@ -216,7 +216,7 @@ def freeze(component_name, registry_file, force):
         * There are no uncommitted changes in the local repo
     """
     component = Component.from_registry_file(registry_file, component_name)
-    frozen_spec = component.to_frozen_registry(force=force).to_dict()
+    frozen_spec = component.to_frozen_registry(force=force).to_spec()
     print(yaml.dump(frozen_spec))
 
 
@@ -231,7 +231,7 @@ def publish(component_name: str, registry_file: str, force: bool):
     Component in the dependency tree cannot be frozen.
     """
     component = Component.from_registry_file(registry_file, component_name)
-    frozen_spec = component.to_frozen_registry(force=force).to_dict()
+    frozen_spec = component.to_frozen_registry(force=force).to_spec()
     web_registry.add_component_spec(frozen_spec)
 
 
