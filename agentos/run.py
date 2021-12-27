@@ -9,18 +9,15 @@ from pathlib import Path
 from typing import Dict, Optional, List, TYPE_CHECKING
 from contextlib import contextmanager
 from mlflow.entities import Run as MLflowRun
-from agentos.registry import Registry, web_registry
+from agentos.registry import Registry
 from agentos.parameter_set import ParameterSet
 from agentos.repo import BadGitStateException, NoLocalPathException
 from agentos.specs import RunSpec
+from agentos.identifiers import RunIdentifier
 
 # Avoids cicular imports
 if TYPE_CHECKING:
     from agentos import Component
-
-# MLflow uses strings as Run identifiers, per
-# https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/entities/run_info.py#L99
-RunIdentifier = str
 
 
 class Run:
@@ -34,11 +31,13 @@ class Run:
     def __init__(self, mlflow_run: MLflowRun):
         self._mlflow_run = mlflow_run
 
-    @staticmethod
+    @classmethod
     def from_registry(
-        run_id: RunIdentifier, registry: Registry = None
+        cls, run_id: RunIdentifier, registry: Registry = None
     ) -> "Run":
-        registry.
+        registry = registry if registry else Registry.from_default()
+        run_spec = registry.get_run_spec(run_id)
+        return cls.from_spec(run_spec)
 
     @staticmethod
     def get_all_runs() -> List["Run"]:
@@ -247,8 +246,8 @@ class Run:
         return artifact_paths
 
     def publish(self) -> None:
-        run_id = self.to_registry(web_registry)
-        print(f"Published Run {run_id} to {web_registry.root_url}.")
+        run_id = self.to_registry(default_registry)
+        print(f"Published Run {run_id} to {default_registry}.")
 
     def to_registry(self, registry: Registry) -> str:
         if not self.is_publishable:

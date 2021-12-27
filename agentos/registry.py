@@ -12,7 +12,7 @@ import requests
 from pathlib import Path
 from typing import Dict, Sequence, Union, TYPE_CHECKING
 from dotenv import load_dotenv
-from agentos.component_identifier import ComponentIdentifier
+from identifiers import ComponentIdentifier
 
 if TYPE_CHECKING:
     from agentos.component import Component
@@ -48,6 +48,12 @@ class Registry(abc.ABC):
         with open(yaml_file) as file_in:
             config = yaml.safe_load(file_in)
         return InMemoryRegistry(config, base_dir=str(Path(yaml_file).parent))
+
+    @classmethod
+    def from_default(cls):
+        if not hasattr(cls, "_default_registry"):
+            cls._default = WebRegistry(AOS_WEB_API_ROOT)
+        return cls._default_registry
 
     @abc.abstractmethod
     def to_dict(self) -> Dict:
@@ -281,9 +287,6 @@ class WebRegistry(Registry):
     def get_repo_spec(self, repo_id: str) -> "RepoSpec":
         raise NotImplementedError
 
-    def get_run_spec(self, run_id: str) -> Dict:
-        raise NotImplementedError
-
     def get_registries(self) -> Sequence:
         raise NotImplementedError
 
@@ -308,7 +311,7 @@ class WebRegistry(Registry):
         print()
         return result
 
-    def add_run_spec(self, run_data: Dict) -> List:
+    def add_run_spec(self, run_data: RunSpec) -> Sequence:
         url = f"{self.root_url}/runs/"
         data = {"run_data": yaml.dump(run_data)}
         response = requests.post(url, data=data)
@@ -332,6 +335,9 @@ class WebRegistry(Registry):
             return result
         finally:
             shutil.rmtree(tmp_dir_path)
+
+    def get_run_spec(self, run_id: RunIdentifier) -> Dict:
+        raise NotImplementedError
 
     def get_run(run_id: int) -> None:
         from agentos.run_manager import AgentRunManager
@@ -400,6 +406,3 @@ class WebRegistry(Registry):
             print()
         finally:
             shutil.rmtree(tmp_dir_path)
-
-
-web_registry = WebRegistry(AOS_WEB_API_ROOT)

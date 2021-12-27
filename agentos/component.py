@@ -5,7 +5,7 @@ from typing import TypeVar, Dict, Type, Any, Optional, Sequence
 from rich import print as rich_print
 from rich.tree import Tree
 from agentos.run import Run
-from agentos.component_identifier import ComponentIdentifier
+from identifiers import ComponentIdentifier
 from agentos.specs import ComponentSpec
 from agentos.registry import (
     Registry,
@@ -56,14 +56,19 @@ class Component:
         self._dunder_name = dunder_name or "__component__"
         self._requirements = []
 
-    @staticmethod
+    @classmethod
     def from_registry(
-        registry: Registry, name: str, version: str = None
+        cls,
+        name: str,
+        registry: Registry = None,
+        version: str = None
     ) -> "Component":
         """
         Returns a Component Object from the provided registry, including
         its full dependency tree of other Component Objects.
+        If no Registry is provided, use the default registry.
         """
+        registry = registry if registry else Registry.from_default()
         identifier = Component.Identifier(name, version)
         component_identifiers = [identifier]
         repos = {}
@@ -81,7 +86,7 @@ class Component:
                 repos[repo_id] = Repo.from_spec(
                     repo_id, repo_spec, registry.base_dir
                 )
-            component = Component.from_repo(
+            component = cls.from_repo(
                 repo=repos[repo_id],
                 identifier=component_id_from_spec,
                 class_name=component_spec["class_name"],
@@ -102,19 +107,22 @@ class Component:
 
         return components[identifier]
 
-    @staticmethod
-    def from_registry_file(yaml_file: str, name: str, version: str = None):
+    @classmethod
+    def from_registry_file(
+        cls, yaml_file: str, name: str, version: str = None
+    ) -> "Component":
         registry = Registry.from_yaml(yaml_file)
-        return Component.from_registry(registry, name, version)
+        return cls.from_registry(registry, name, version)
 
-    @staticmethod
+    @classmethod
     def from_class(
+        cls,
         managed_cls: Type[T],
         name: str = None,
         dunder_name: str = None,
     ) -> "Component":
         name = name if name else managed_cls.__name__
-        return Component(
+        return cls(
             managed_cls=managed_cls,
             repo=InMemoryRepo(),
             identifier=Component.Identifier(name),
@@ -123,8 +131,9 @@ class Component:
             dunder_name=dunder_name,
         )
 
-    @staticmethod
+    @classmethod
     def from_repo(
+        cls,
         repo: Repo,
         identifier: "Component.Identifier",
         class_name: str,
@@ -141,7 +150,7 @@ class Component:
         spec.loader.exec_module(module)
         managed_cls = getattr(module, class_name)
         sys.path.pop()
-        return Component(
+        return cls(
             managed_cls=managed_cls,
             repo=repo,
             identifier=identifier,

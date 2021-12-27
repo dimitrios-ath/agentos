@@ -11,7 +11,7 @@ from pathlib import Path
 from agentos import Component
 from agentos import ParameterSet
 from agentos.run import Run
-from agentos.registry import web_registry
+from agentos.registry import Registry
 
 
 @click.group()
@@ -194,7 +194,7 @@ def publish_run(entity_id):
 @agentos_cmd.command()
 @_arg_run_id
 def get_run(run_id):
-    web_registry.get_run(run_id)
+    Registry.get_default().get_run(run_id)
 
 
 @agentos_cmd.command()
@@ -232,7 +232,7 @@ def publish(component_name: str, registry_file: str, force: bool):
     """
     component = Component.from_registry_file(registry_file, component_name)
     frozen_spec = component.to_frozen_registry(force=force).to_spec()
-    web_registry.add_component_spec(frozen_spec)
+    Registry.get_default().add_component_spec(frozen_spec)
 
 
 # Copied from https://github.com/mlflow/mlflow/blob/3958cdf9664ade34ebcf5960bee215c80efae992/mlflow/cli.py#L188 # noqa: E501
