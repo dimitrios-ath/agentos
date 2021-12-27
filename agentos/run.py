@@ -32,12 +32,106 @@ class Run:
         self._mlflow_run = mlflow_run
 
     @classmethod
-    def from_registry(
-        cls, run_id: RunIdentifier, registry: Registry = None
-    ) -> "Run":
-        registry = registry if registry else Registry.from_default()
+    def from_default_registry(cls, name: str, version: str = None) -> "Run":
+        return cls.from_registry(Registry.from_default(), name, version)
+
+    @classmethod
+    def from_registry(cls, registry: Registry, run_id: RunIdentifier) -> "Run":
         run_spec = registry.get_run_spec(run_id)
         return cls.from_spec(run_spec)
+
+    @classmethod
+    def from_run_spec(cls):
+        raise NotImplementedError
+
+    def to_registry(
+        self,
+        registry: Registry = None,
+        recurse: bool = True,
+        force: bool = False
+    ) -> Registry:
+        """
+        Returns a registry containing specs for this run and all of its
+        transitive dependents, as well the repos of all of them. If recurse
+        is True, also adds the component that was run to the registry by
+        calling .to_registry() on it, and passing the recurse and force args
+        through to that call.
+
+        For details on those flags, see :py:func:agentos.Component.to_registry:
+        """
+        raise NotImplementedError
+
+
+def to_dir(self, directory_name: str) -> None:
+        """
+        Set up a directory with all of the necessary parts for a rerun,
+        including a registry file that contains a run_spec for this run,
+        and all component_specs and repo specs required for the run.
+        Also include copies of source files for all components in same repo as
+        the root component of the run.
+        """
+        from agentos.run_manager import AgentRunManager
+
+        with open("parameter_set.yaml", "w") as param_file:
+            param_file.write(yaml.safe_dump(run_spec["parameter_set"]))
+
+        root_response = requests.get(run_spec["root_link"])
+        root_data = json.loads(root_response.content)
+
+        rerun_cmd = (
+            f'agentos run {root_data["name"]}=={root_data["version"]} '
+            f'--entry-point {run_spec["entry_point"]} '
+            f"--param-file parameter_set.yaml"
+        )
+        with open("README.md", "w") as readme_file:
+            readme_file.write("## Rerun this agent\n\n```\n")
+            readme_file.write(rerun_cmd)
+            readme_file.write("\n```")
+        spec_url = f"{self.run_api_url}/root_spec"
+        spec_response = requests.get(spec_url)
+        spec_dict = json.loads(spec_response.content)
+        with open("components.yaml", "w") as file_out:
+            file_out.write(yaml.safe_dump(spec_dict))
+        try:
+            tar_url = f"{self.run_api_url}/download_artifact"
+            tmp_dir_path = Path(tempfile.mkdtemp())
+            requests.get(tar_url)
+            tarball_response = requests.get(tar_url)
+            tarball_name = "artifacts.tar.gz"
+            tarball_path = tmp_dir_path / tarball_name
+            with open(tarball_path, "wb") as f:
+                f.write(tarball_response.content)
+            tar = tarfile.open(tarball_path)
+            tar.extractall(path=tmp_dir_path)
+            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
+            mlflow.set_tag(
+                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.LEARN_KEY
+            )
+            mlflow.log_metric(
+                "episode_count",
+                run_spec["mlflow_metrics"]["training_episode_count"],
+            )
+            mlflow.log_metric(
+                "step_count", run_spec["mlflow_metrics"]["training_step_count"]
+            )
+            mlflow.end_run()
+            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
+            mlflow.set_tag(
+                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.RESTORE_KEY
+            )
+            for file_name in os.listdir(tmp_dir_path):
+                if file_name == tarball_name:
+                    continue
+                file_path = tmp_dir_path / file_name
+                mlflow.log_artifact(file_path)
+            for name, value in run_spec["mlflow_metrics"].items():
+                mlflow.log_metric(name, value)
+            mlflow.end_run()
+            print("\nRerun agent as follows:")
+            print(rerun_cmd)
+            print()
+        finally:
+            shutil.rmtree(tmp_dir_path)
 
     @staticmethod
     def get_all_runs() -> List["Run"]:

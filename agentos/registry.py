@@ -2,7 +2,6 @@ import abc
 import os
 import yaml
 import json
-import mlflow
 import pprint
 import shutil
 import tarfile
@@ -12,7 +11,7 @@ import requests
 from pathlib import Path
 from typing import Dict, Sequence, Union, TYPE_CHECKING
 from dotenv import load_dotenv
-from identifiers import ComponentIdentifier
+from agentos.identifiers import ComponentIdentifier, RunIdentifier
 
 if TYPE_CHECKING:
     from agentos.component import Component
@@ -52,7 +51,7 @@ class Registry(abc.ABC):
     @classmethod
     def from_default(cls):
         if not hasattr(cls, "_default_registry"):
-            cls._default = WebRegistry(AOS_WEB_API_ROOT)
+            cls._default_registry = WebRegistry(AOS_WEB_API_ROOT)
         return cls._default_registry
 
     @abc.abstractmethod
@@ -203,12 +202,13 @@ class InMemoryRegistry(Registry):
     def __init__(self, input_dict: Dict = None, base_dir: str = None):
         super().__init__(base_dir)
         self._registry = input_dict if input_dict else {}
+        print(f"input_dict is {input_dict}")
         if "components" not in self._registry.keys():
-            self._registry["component_specs"] = {}
+            self._registry["components"] = {}
         if "repos" not in self._registry.keys():
-            self._registry["repo_specs"] = {}
+            self._registry["repos"] = {}
         if "runs" not in self._registry.keys():
-            self._registry["run_specs"] = {}
+            self._registry["runs"] = {}
         if "registries" not in self._registry.keys():
             self._registry["registries"] = []
 
@@ -218,7 +218,7 @@ class InMemoryRegistry(Registry):
         if filter_by_name or filter_by_version:
             try:
                 components = {}
-                for k, v in self._registry["component_specs"].items():
+                for k, v in self._registry["components"].items():
                     candidate_id = ComponentIdentifier.from_str(k)
                     passes_filter = True
                     if filter_by_name and candidate_id.name != filter_by_name:
@@ -233,25 +233,25 @@ class InMemoryRegistry(Registry):
                 return components
             except KeyError:
                 return {}
-        return self._registry["component_specs"]
+        return self._registry["components"]
 
     def get_repo_spec(self, repo_id: str) -> "RepoSpec":
-        return self._registry["repo_specs"][repo_id]
+        return self._registry["repos"][repo_id]
 
     def get_run_spec(self, run_id: str) -> Dict:
-        return self._registry["run_specs"][run_id]
+        return self._registry["runs"][run_id]
 
     def get_registries(self) -> Sequence[Registry]:
         return self._registry["registries"]
 
     def add_component_spec(self, component_spec: NestedComponentSpec) -> None:
-        self._registry["component_specs"].update(component_spec)
+        self._registry["components"].update(component_spec)
 
     def add_repo_spec(self, repo_spec: RepoSpec) -> None:
-        self._registry["repo_specs"].update(repo_spec)
+        self._registry["repos"].update(repo_spec)
 
     def add_run_spec(self, run_spec: RunSpec) -> None:
-        self._registry["run_specs"].update(run_spec)
+        self._registry["runs"].update(run_spec)
 
     def to_dict(self) -> Dict:
         return self._registry
@@ -262,8 +262,8 @@ class WebRegistry(Registry):
     A web-server backed Registry.
     """
 
-    def __init__(self, root_url: str, base_dir: str = None):
-        self.root_url = root_url
+    def __init__(self, root_api_url: str, base_dir: str = None):
+        self.root_api_url = root_api_url
         self.base_dir = (
             base_dir if base_dir else "."
         )  # Used for file-backed Registry types.
@@ -301,7 +301,7 @@ class WebRegistry(Registry):
         Register a Component Spec. Component spec must be frozen.
         :param component_spec: A frozen component spec.
         """
-        url = f"{self.root_url}/components/ingest_spec/"
+        url = f"{self.root_api_url}/components/ingest_spec/"
         data = {"components.yaml": yaml.dump(component_spec)}
         response = requests.post(url, data=data)
         self._check_response(response)
@@ -312,7 +312,7 @@ class WebRegistry(Registry):
         return result
 
     def add_run_spec(self, run_data: RunSpec) -> Sequence:
-        url = f"{self.root_url}/runs/"
+        url = f"{self.root_api_url}/runs/"
         data = {"run_data": yaml.dump(run_data)}
         response = requests.post(url, data=data)
         self._check_response(response)
@@ -329,7 +329,7 @@ class WebRegistry(Registry):
                 for artifact_path in run_artifacts:
                     tar.add(artifact_path, arcname=artifact_path.name)
             files = {"tarball": open(tar_gz_path, "rb")}
-            url = f"{self.root_url}/runs/{run_id}/upload_artifact/"
+            url = f"{self.root_api_url}/runs/{run_id}/upload_artifact/"
             response = requests.post(url, files=files)
             result = json.loads(response.content)
             return result
@@ -337,72 +337,10 @@ class WebRegistry(Registry):
             shutil.rmtree(tmp_dir_path)
 
     def get_run_spec(self, run_id: RunIdentifier) -> Dict:
-        raise NotImplementedError
-
-    def get_run(run_id: int) -> None:
-        from agentos.run_manager import AgentRunManager
-        from agentos.run import Run
-
-        run_url = f"{AOS_WEB_API_ROOT}/runs/{run_id}"
+        run_url = f"{self.root_api_url}/runs/{run_id}"
         run_response = requests.get(run_url)
-        run_data = json.loads(run_response.content)
-        with open("parameter_set.yaml", "w") as param_file:
-            param_file.write(yaml.safe_dump(run_data["parameter_set"]))
+        return json.loads(run_response.content)
 
-        root_response = requests.get(run_data["root_link"])
-        root_data = json.loads(root_response.content)
-
-        rerun_cmd = (
-            f'agentos run {root_data["name"]}=={root_data["version"]} '
-            f'--entry-point {run_data["entry_point"]} '
-            f"--param-file parameter_set.yaml"
-        )
-        with open("README.md", "w") as readme_file:
-            readme_file.write("## Rerun this agent\n\n```\n")
-            readme_file.write(rerun_cmd)
-            readme_file.write("\n```")
-        spec_url = f"{run_url}/root_spec"
-        spec_response = requests.get(spec_url)
-        spec_dict = json.loads(spec_response.content)
-        with open("components.yaml", "w") as file_out:
-            file_out.write(yaml.safe_dump(spec_dict))
-        try:
-            tar_url = f"{run_url}/download_artifact"
-            tmp_dir_path = Path(tempfile.mkdtemp())
-            requests.get(tar_url)
-            tarball_response = requests.get(tar_url)
-            tarball_name = "artifacts.tar.gz"
-            tarball_path = tmp_dir_path / tarball_name
-            with open(tarball_path, "wb") as f:
-                f.write(tarball_response.content)
-            tar = tarfile.open(tarball_path)
-            tar.extractall(path=tmp_dir_path)
-            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
-            mlflow.set_tag(
-                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.LEARN_KEY
-            )
-            mlflow.log_metric(
-                "episode_count",
-                run_data["mlflow_metrics"]["training_episode_count"],
-            )
-            mlflow.log_metric(
-                "step_count", run_data["mlflow_metrics"]["training_step_count"]
-            )
-            mlflow.end_run()
-            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
-            mlflow.set_tag(
-                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.RESTORE_KEY
-            )
-            for file_name in os.listdir(tmp_dir_path):
-                if file_name == tarball_name:
-                    continue
-                file_path = tmp_dir_path / file_name
-                mlflow.log_artifact(file_path)
-            for name, value in run_data["mlflow_metrics"].items():
-                mlflow.log_metric(name, value)
-            mlflow.end_run()
-            print("\nRerun agent as follows:")
-            print(rerun_cmd)
-            print()
-        finally:
-            shutil.rmtree(tmp_dir_path)
+    def get_run(self, run_id: str) -> None:
+        from agentos.run import Run
+        return Run.from_registry(self, run_id)

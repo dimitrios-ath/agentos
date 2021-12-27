@@ -5,7 +5,7 @@ from typing import TypeVar, Dict, Type, Any, Optional, Sequence
 from rich import print as rich_print
 from rich.tree import Tree
 from agentos.run import Run
-from identifiers import ComponentIdentifier
+from agentos.identifiers import ComponentIdentifier
 from agentos.specs import ComponentSpec
 from agentos.registry import (
     Registry,
@@ -57,10 +57,16 @@ class Component:
         self._requirements = []
 
     @classmethod
+    def from_default_registry(
+        cls, name: str, version: str = None
+    ) -> "Component":
+        return cls.from_registry(Registry.from_default(), name, version)
+
+    @classmethod
     def from_registry(
         cls,
+        registry: Registry,
         name: str,
-        registry: Registry = None,
         version: str = None
     ) -> "Component":
         """
@@ -68,7 +74,6 @@ class Component:
         its full dependency tree of other Component Objects.
         If no Registry is provided, use the default registry.
         """
-        registry = registry if registry else Registry.from_default()
         identifier = Component.Identifier(name, version)
         component_identifiers = [identifier]
         repos = {}
@@ -284,10 +289,10 @@ class Component:
         force: bool = False,
     ) -> Registry:
         """
-        Returns a registry containing this component and all of its
-        transitive dependents, as well the repos of all of them. Throws
-        an exception if any of them already exist and are different
-        unless ``force`` is set to True.
+        Returns a registry containing specs for this component, all of its
+        transitive dependents, and the repos of all of them. Throws an
+        exception if any of them already exist in the Registry that are
+        different unless ``force`` is set to True.
 
         :param registry: Optionally, add the component spec for this component
                          and each of its transitive dependencies (which are
