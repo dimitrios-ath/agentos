@@ -5,6 +5,7 @@ import mlflow
 import pprint
 import shutil
 import tempfile
+import tarfile
 from pathlib import Path
 from typing import Dict, Optional, List, TYPE_CHECKING
 from contextlib import contextmanager
@@ -17,23 +18,35 @@ from agentos.identifiers import RunIdentifier
 
 # Avoids cicular imports
 if TYPE_CHECKING:
-    from agentos import Component
+    from agentos.component import Component
 
+"""
+An MLflow Run is a thin container that holds an RunData and RunInfo object.
+RunInfo contains the run metadata (id, user, timestamp, etc.)
+RunData contains metrics, params, and tags. each is a dict
+
+In MLflow, the concept of a EntryPoint exists in the context of a Project run.
+A Project Run is a wrapper around an MLflow tracking Run. A project Run
+uses Run Tags to log all sorts of metadata, including the entry point per
+https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/projects/utils.py#L225
+and 
+https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/utils/mlflow_tags.py
+"""
 
 class Run:
     MLFLOW_EXPERIMENT_ID = "0"
-    PARAM_KEY = "parameter_set.yaml"
-    REG_KEY = "components.yaml"
-    FROZEN_KEY = "spec_is_frozen"
-    ROOT_NAME_KEY = "root_name"
+    REGISTRY_KEY = "agentos.components.yaml"
     ENTRY_POINT_KEY = "entry_point"
+    ROOT_COMPONENT_ID_KEY = "agentos.root_component_name"
+    IS_FROZEN_KEY = "agentos.spec_is_frozen"
 
-    def __init__(self, mlflow_run: MLflowRun):
-        self._mlflow_run = mlflow_run
+    def __init__(self, mlflow_run: MLflowRun) -> None:
+        if mlflow_run:
+            self._mlflow_run = MLflowRun()
 
     @classmethod
-    def from_default_registry(cls, name: str, version: str = None) -> "Run":
-        return cls.from_registry(Registry.from_default(), name, version)
+    def from_default_registry(cls, run_id: RunIdentifier) -> "Run":
+        return cls.from_registry(Registry.from_default(), run_id)
 
     @classmethod
     def from_registry(cls, registry: Registry, run_id: RunIdentifier) -> "Run":
@@ -41,97 +54,11 @@ class Run:
         return cls.from_spec(run_spec)
 
     @classmethod
-    def from_run_spec(cls):
-        raise NotImplementedError
-
-    def to_registry(
-        self,
-        registry: Registry = None,
-        recurse: bool = True,
-        force: bool = False
-    ) -> Registry:
-        """
-        Returns a registry containing specs for this run and all of its
-        transitive dependents, as well the repos of all of them. If recurse
-        is True, also adds the component that was run to the registry by
-        calling .to_registry() on it, and passing the recurse and force args
-        through to that call.
-
-        For details on those flags, see :py:func:agentos.Component.to_registry:
-        """
-        raise NotImplementedError
-
-
-def to_dir(self, directory_name: str) -> None:
-        """
-        Set up a directory with all of the necessary parts for a rerun,
-        including a registry file that contains a run_spec for this run,
-        and all component_specs and repo specs required for the run.
-        Also include copies of source files for all components in same repo as
-        the root component of the run.
-        """
-        from agentos.run_manager import AgentRunManager
-
-        with open("parameter_set.yaml", "w") as param_file:
-            param_file.write(yaml.safe_dump(run_spec["parameter_set"]))
-
-        root_response = requests.get(run_spec["root_link"])
-        root_data = json.loads(root_response.content)
-
-        rerun_cmd = (
-            f'agentos run {root_data["name"]}=={root_data["version"]} '
-            f'--entry-point {run_spec["entry_point"]} '
-            f"--param-file parameter_set.yaml"
+    def from_spec(cls, run_spec: RunSpec):
+        mlflow_run = cls(
+            run_info=run_spec["info"], run_data=run_spec["data"]
         )
-        with open("README.md", "w") as readme_file:
-            readme_file.write("## Rerun this agent\n\n```\n")
-            readme_file.write(rerun_cmd)
-            readme_file.write("\n```")
-        spec_url = f"{self.run_api_url}/root_spec"
-        spec_response = requests.get(spec_url)
-        spec_dict = json.loads(spec_response.content)
-        with open("components.yaml", "w") as file_out:
-            file_out.write(yaml.safe_dump(spec_dict))
-        try:
-            tar_url = f"{self.run_api_url}/download_artifact"
-            tmp_dir_path = Path(tempfile.mkdtemp())
-            requests.get(tar_url)
-            tarball_response = requests.get(tar_url)
-            tarball_name = "artifacts.tar.gz"
-            tarball_path = tmp_dir_path / tarball_name
-            with open(tarball_path, "wb") as f:
-                f.write(tarball_response.content)
-            tar = tarfile.open(tarball_path)
-            tar.extractall(path=tmp_dir_path)
-            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
-            mlflow.set_tag(
-                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.LEARN_KEY
-            )
-            mlflow.log_metric(
-                "episode_count",
-                run_spec["mlflow_metrics"]["training_episode_count"],
-            )
-            mlflow.log_metric(
-                "step_count", run_spec["mlflow_metrics"]["training_step_count"]
-            )
-            mlflow.end_run()
-            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
-            mlflow.set_tag(
-                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.RESTORE_KEY
-            )
-            for file_name in os.listdir(tmp_dir_path):
-                if file_name == tarball_name:
-                    continue
-                file_path = tmp_dir_path / file_name
-                mlflow.log_artifact(file_path)
-            for name, value in run_spec["mlflow_metrics"].items():
-                mlflow.log_metric(name, value)
-            mlflow.end_run()
-            print("\nRerun agent as follows:")
-            print(rerun_cmd)
-            print()
-        finally:
-            shutil.rmtree(tmp_dir_path)
+        return cls(mlflow_run)
 
     @staticmethod
     def get_all_runs() -> List["Run"]:
@@ -233,21 +160,21 @@ def to_dir(self, directory_name: str) -> None:
 
     @property
     def is_publishable(self) -> bool:
-        if self.FROZEN_KEY not in self._mlflow_run.data.params:
+        if self.IS_FROZEN_KEY not in self._mlflow_run.data.params:
             return False
-        return self._mlflow_run.data.params[self.FROZEN_KEY] == "True"
+        return self._mlflow_run.data.params[self.IS_FROZEN_KEY] == "True"
 
     @property
-    def root_component(self) -> str:
-        return self._mlflow_run.data.params[self.ROOT_NAME_KEY]
+    def root_component_name(self) -> str:
+        return self._mlflow_run.data.params[self.ROOT_COMPONENT_ID_KEY]
 
     @property
     def parameter_set(self) -> Dict:
-        return self._get_yaml_artifact(self.PARAM_KEY)
+        return self._get_yaml_artifact(self.PARAM_ARTIFACT_KEY)
 
     @property
     def component_spec(self) -> Dict:
-        return self._get_yaml_artifact(self.REG_KEY)
+        return self._get_yaml_artifact(self.REGISTRY_ARTIFACT_KEY)
 
     @property
     def tags(self) -> Dict:
@@ -268,6 +195,109 @@ def to_dir(self, directory_name: str) -> None:
     @property
     def mlflow_info(self):
         return self._mlflow_run.info
+
+    def publish(self) -> None:
+        if not self.is_publishable:
+            raise Exception("Run not publishable; Spec is not frozen!")
+        default_registry = Registry.from_default()
+        run_id = self.to_registry(default_registry)
+        print(f"Published Run {run_id} to {default_registry}.")
+
+    def to_registry(
+        self,
+        registry: Registry = None,
+        recurse: bool = True,
+        force: bool = False
+    ) -> Registry:
+        """
+        Returns a registry containing specs for this run and all of its
+        transitive dependents, as well the repos of all of them. If recurse
+        is True, also adds the component that was run to the registry by
+        calling .to_registry() on it, and passing the recurse and force args
+        through to that call.
+
+        For details on those flags, see :py:func:agentos.Component.to_registry:
+        """
+        result = registry.add_run_spec(self.to_spec())
+        run_id = result["id"]
+        registry.add_run_artifacts(run_id, self._get_artifact_paths())
+        if recurse:
+            registry.add_component(self.root_component, recurse, force)
+        return run_id
+
+    def rerun(self) -> "Run":
+        """
+        Create a new run using the same root component, entry point, and
+        params as this Run.
+
+        :return: a new Run object representing the rerun.
+        """
+        self.root_component.run()
+
+    def to_dir(self, dir_name: str) -> None:
+        """
+        Set up a directory with all of the necessary parts for a rerun,
+        including a registry file that contains a run_spec for this run,
+        and all component_specs and repo specs required for the run.
+        Also include copies of source files for all components in same repo as
+        the root component of the run.
+        """
+        from agentos.run_manager import AgentRunManager
+
+        # Make param file.
+        with open(Path(dir_name) / "parameter_set.yaml", "w") as param_file:
+            param_file.write(yaml.safe_dump(self.to_spec()["parameter_set"]))
+        rerun_cmd = (
+            f'agentos run {self.root_component.identifier} '
+            f'--entry-point {self.entry_point} '
+            f"--param-file parameter_set.yaml"
+        )
+        with open("README.md", "w") as readme_file:
+            readme_file.write("## Rerun this agent\n\n```\n")
+            readme_file.write(rerun_cmd)
+            readme_file.write("\n```")
+
+        # Make Registry (components.yaml) file.
+        self.root_component.to_registry(Path(dir_name) / "components.yaml")
+
+        # Make artifacts dir (if any).
+        try:
+            tmp_dir_path = Path(tempfile.mkdtemp())
+            tarball_name = "artifacts.tar.gz"
+            tarball_path = self.get_artifacts_dir_path() / tarball_name
+            tar = tarfile.open(tarball_path)
+            tar.extractall(path=tmp_dir_path)
+
+            # Log new MLflow runs for this new dir.
+            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
+            mlflow.set_tag(
+                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.LEARN_KEY
+            )
+            mlflow.log_metric(
+                "episode_count",
+                self.metrics["training_episode_count"],
+            )
+            mlflow.log_metric(
+                "step_count", self.metrics["training_step_count"]
+            )
+            mlflow.end_run()
+            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
+            mlflow.set_tag(
+                AgentRunManager.RUN_TYPE_TAG, AgentRunManager.RESTORE_KEY
+            )
+            for file_name in os.listdir(tmp_dir_path):
+                if file_name == tarball_name:
+                    continue
+                file_path = tmp_dir_path / file_name
+                mlflow.log_artifact(file_path)
+            for name, value in self.metrics.items():
+                mlflow.log_metric(name, value)
+            mlflow.end_run()
+            print("\nRerun agent as follows:")
+            print(rerun_cmd)
+            print()
+        finally:
+            shutil.rmtree(tmp_dir_path)
 
     def _get_yaml_artifact(self, name: str) -> Dict:
         artifacts_dir_path = self.get_artifacts_dir_path()
@@ -298,7 +328,7 @@ def to_dir(self, directory_name: str) -> None:
         else:
             pprint.pprint(self.to_spec())
 
-    def to_dict(self) -> RunSpec:
+    def to_spec(self) -> RunSpec:
         artifact_paths = [str(p) for p in self._get_artifact_paths()]
         mlflow_info_dict = {
             "artifact_uri": self.mlflow_info.artifact_uri,
@@ -312,23 +342,22 @@ def to_dir(self, directory_name: str) -> None:
             "user_id": self.mlflow_info.user_id,
         }
         return {
-            "id": self.id,
             "is_publishable": self.is_publishable,
             "root_component": self.root_component,
             "entry_point": self.entry_point,
             "parameter_set": self.parameter_set,
             "component_spec": self.component_spec,
             "artifacts": artifact_paths,
-            "mlflow_info": mlflow_info_dict,
-            "mlflow_data": self.mlflow_data.to_dictionary(),
+            "info": mlflow_info_dict,
+            "data": self.mlflow_data.to_dictionary(),
         }
 
     def _get_artifact_paths(self) -> List[Path]:
         artifacts_dir = self.get_artifacts_dir_path()
         artifact_paths = []
         skipped_artifacts = [
-            self.PARAM_KEY,
-            self.REG_KEY,
+            self.PARAM_ARTIFACT_KEY,
+            self.REGISTRY_ARTIFACT_KEY,
         ]
         for name in os.listdir(self.get_artifacts_dir_path()):
             if name in skipped_artifacts:
@@ -339,44 +368,22 @@ def to_dir(self, directory_name: str) -> None:
         assert all(exist), f"Missing artifact paths: {artifact_paths}, {exist}"
         return artifact_paths
 
-    def publish(self) -> None:
-        run_id = self.to_registry(default_registry)
-        print(f"Published Run {run_id} to {default_registry}.")
-
-    def to_registry(self, registry: Registry) -> str:
-        if not self.is_publishable:
-            raise Exception("Run not publishable; Spec is not frozen!")
-        result = registry.add_run_spec(self.to_spec())
-        run_id = result["id"]
-        registry.add_run_artifacts(run_id, self._get_artifact_paths())
-        return run_id
-
     def log_parameter_set(self, params: ParameterSet) -> None:
-        self.log_data_as_yaml_artifact(self.PARAM_KEY, params.to_spec())
+        self.log_dict(self.PARAM_ARTIFACT_KEY, params.to_spec())
 
     def log_component_spec(self, root_component: "Component") -> None:
         frozen = None
         try:
             frozen = root_component.to_frozen_registry()
             # FIXME - Will need to be adapted for WebRegistry
-            self.log_data_as_yaml_artifact(self.REG_KEY, frozen.to_dict())
+            self.log_data_as_yaml_artifact(self.REGISTRY_ARTIFACT_KEY, frozen)
         except (BadGitStateException, NoLocalPathException) as exc:
             print(f"Warning: component is not publishable: {str(exc)}")
-            unfrozen = root_component.to_registry()
+            spec = root_component.to_spec()
             # FIXME - Will need to be adapted for WebRegistry
-            self.log_data_as_yaml_artifact(self.REG_KEY, unfrozen.to_dict())
-        mlflow.log_param(self.FROZEN_KEY, frozen is not None)
+            self.log_data_as_yaml_artifact(self.REGISTRY_ARTIFACT_KEY, spec)
+        mlflow.log_param(self.IS_FROZEN_KEY, frozen is not None)
 
     def log_call(self, root_name: str, fn_name: str) -> None:
-        mlflow.log_param(self.ROOT_NAME_KEY, root_name)
+        mlflow.log_param(self.ROOT_COMPONENT_ID_KEY, root_name)
         mlflow.log_param(self.ENTRY_POINT_KEY, fn_name)
-
-    def log_data_as_yaml_artifact(self, name: str, data: dict):
-        try:
-            tmp_dir_path = Path(tempfile.mkdtemp())
-            artifact_path = tmp_dir_path / name
-            with open(artifact_path, "w") as file_out:
-                file_out.write(yaml.safe_dump(data))
-            mlflow.log_artifact(artifact_path)
-        finally:
-            shutil.rmtree(tmp_dir_path)

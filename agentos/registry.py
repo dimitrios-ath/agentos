@@ -189,9 +189,9 @@ class Registry(abc.ABC):
     def add_repo_spec(self, repo_spec: RepoSpec) -> None:
         raise NotImplementedError
 
-#    @abc.abstractmethod
-#    def add_run_spec(self, run_spec: RunSpec) -> None:
-#        raise NotImplementedError
+    @abc.abstractmethod
+    def add_run_spec(self, run_spec: RunSpec) -> None:
+        raise NotImplementedError
 
 
 class InMemoryRegistry(Registry):
