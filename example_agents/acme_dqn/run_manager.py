@@ -33,7 +33,7 @@ class AcmeRunManager(AgentRunManager):
     def restore_tensorflow(self, name: str, network: tf.Module) -> None:
         runs = Run.get_all_runs()
         for run in runs:
-            artifacts_uri = run.mlflow_info.artifact_uri
+            artifacts_uri = run.info.artifact_uri
             if "file://" != artifacts_uri[:7]:
                 raise Exception(f"Non-local artifacts path: {artifacts_uri}")
             artifacts_dir = Path(artifacts_uri[7:]).absolute()

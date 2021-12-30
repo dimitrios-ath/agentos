@@ -6,6 +6,7 @@ import pprint
 import shutil
 import tempfile
 import tarfile
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Dict, Optional, List, TYPE_CHECKING
 from contextlib import contextmanager
@@ -33,16 +34,17 @@ and
 https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/utils/mlflow_tags.py
 """
 
+
 class Run:
     MLFLOW_EXPERIMENT_ID = "0"
-    REGISTRY_KEY = "agentos.components.yaml"
-    ENTRY_POINT_KEY = "entry_point"
-    ROOT_COMPONENT_ID_KEY = "agentos.root_component_name"
     IS_FROZEN_KEY = "agentos.spec_is_frozen"
+    ROOT_COMPONENT_ID_KEY = "agentos.root_component_id"
+    ROOT_COMPONENT_SPEC_FILENAME = "agentos.root_component_spec"
+    PARAM_SET_KEY = "agentos.parameter_set"
+    ENTRY_POINT = "agentos.entrypoint"
 
     def __init__(self, mlflow_run: MLflowRun) -> None:
-        if mlflow_run:
-            self._mlflow_run = MLflowRun()
+        self._mlflow_run = mlflow_run
 
     @classmethod
     def from_default_registry(cls, run_id: RunIdentifier) -> "Run":
@@ -55,7 +57,7 @@ class Run:
 
     @classmethod
     def from_spec(cls, run_spec: RunSpec):
-        mlflow_run = cls(
+        mlflow_run = MLflowRun(
             run_info=run_spec["info"], run_data=run_spec["data"]
         )
         return cls(mlflow_run)
@@ -156,47 +158,53 @@ class Run:
 
     @property
     def entry_point(self) -> str:
-        return self._mlflow_run.data.params[self.ENTRY_POINT_KEY]
+        return self._mlflow_run.data.tags[self.ENTRY_POINT_KEY]
 
     @property
     def is_publishable(self) -> bool:
         if self.IS_FROZEN_KEY not in self._mlflow_run.data.params:
             return False
-        return self._mlflow_run.data.params[self.IS_FROZEN_KEY] == "True"
+        return self._mlflow_run.data.tags[self.IS_FROZEN_KEY] == "True"
 
     @property
-    def root_component_name(self) -> str:
-        return self._mlflow_run.data.params[self.ROOT_COMPONENT_ID_KEY]
+    def root_component_identifier(self) -> str:
+        return self._mlflow_run.data.tags[self.ROOT_COMPONENT_ID_KEY]
 
     @property
-    def parameter_set(self) -> Dict:
-        return self._get_yaml_artifact(self.PARAM_ARTIFACT_KEY)
+    def root_component_spec(self) -> Dict:
+        return self._get_yaml_artifact(self.ROOT_COMPONENT_SPEC_FILENAME)
 
     @property
-    def component_spec(self) -> Dict:
-        return self._get_yaml_artifact(self.REGISTRY_ARTIFACT_KEY)
+    def info(self):
+        return self._mlflow_run.info
 
     @property
-    def tags(self) -> Dict:
-        return self.mlflow_data.tags
-
-    @property
-    def metrics(self) -> Dict:
-        return self.mlflow_data.metrics
-
-    @property
-    def params(self) -> Dict:
-        return self.mlflow_data.params
-
-    @property
-    def mlflow_data(self):
+    def data(self):
         return self._mlflow_run.data
 
     @property
-    def mlflow_info(self):
-        return self._mlflow_run.info
+    def tags(self) -> Dict:
+        return self.data.tags
+
+    @property
+    def metrics(self) -> Dict:
+        return self.data.metrics
+
+    @property
+    def params(self) -> Dict:
+        return self.parameter_set
+
+    @property
+    def parameter_set(self) -> Dict:
+        return self._mlflow_run.data.params
 
     def publish(self) -> None:
+        """
+        This function is like :py:func:to_registry: but it writes the Run to
+        the default registry, whereas :py:func:to_registry: writes the Run
+        either to an explicitly provided registry object, or to a new
+        InMemoryRegistry.
+        """
         if not self.is_publishable:
             raise Exception("Run not publishable; Spec is not frozen!")
         default_registry = Registry.from_default()
@@ -207,23 +215,33 @@ class Run:
         self,
         registry: Registry = None,
         recurse: bool = True,
-        force: bool = False
+        force: bool = False,
+        include_artifacts = False
     ) -> Registry:
         """
-        Returns a registry containing specs for this run and all of its
-        transitive dependents, as well the repos of all of them. If recurse
+        Returns a registry a run spec for this run. If recurse
         is True, also adds the component that was run to the registry by
-        calling .to_registry() on it, and passing the recurse and force args
-        through to that call.
+        calling .to_registry() on it, and passing the given registry arg as
+        well as the recurse and force args through to that call.
 
         For details on those flags, see :py:func:agentos.Component.to_registry:
         """
-        result = registry.add_run_spec(self.to_spec())
-        run_id = result["id"]
-        registry.add_run_artifacts(run_id, self._get_artifact_paths())
+        if not registry:
+            from agentos.registry import InMemoryRegistry
+            registry = InMemoryRegistry()
+        registry.add_run_spec(self.to_spec())
+        # If we are writing to a WebRegistry and have local, then optionally
+        # (per function arg) try uploading the artifact files to the registry.
+        if (
+            include_artifacts and
+            hasattr(registry, "add_run_artifacts") and
+            self.info.artifact_uri.startswith("file://")
+        ):
+            local_artifact_path = self.get_artifacts_dir_path()
+            registry.add_run_artifacts(self.id, local_artifact_path)
         if recurse:
-            registry.add_component(self.root_component, recurse, force)
-        return run_id
+            registry.add_component(self.root_component_spec, recurse, force)
+        return registry
 
     def rerun(self) -> "Run":
         """
@@ -232,7 +250,8 @@ class Run:
 
         :return: a new Run object representing the rerun.
         """
-        self.root_component.run()
+        root_component = Component.from_spec(self.root_component_spec)
+        return root_component.run(self.entry_point, self.parameter_set)
 
     def to_dir(self, dir_name: str) -> None:
         """
@@ -308,7 +327,7 @@ class Run:
             return yaml.safe_load(file_in)
 
     def get_artifacts_dir_path(self) -> Path:
-        artifacts_uri = self.mlflow_info.artifact_uri
+        artifacts_uri = self.info.artifact_uri
         if "file://" != artifacts_uri[:7]:
             raise Exception(f"Non-local artifacts path: {artifacts_uri}")
         slice_count = 7
@@ -329,47 +348,10 @@ class Run:
             pprint.pprint(self.to_spec())
 
     def to_spec(self) -> RunSpec:
-        artifact_paths = [str(p) for p in self._get_artifact_paths()]
-        mlflow_info_dict = {
-            "artifact_uri": self.mlflow_info.artifact_uri,
-            "end_time": self.mlflow_info.end_time,
-            "experiment_id": self.mlflow_info.experiment_id,
-            "lifecycle_stage": self.mlflow_info.lifecycle_stage,
-            "run_id": self.mlflow_info.run_id,
-            "run_uuid": self.mlflow_info.run_uuid,
-            "start_time": self.mlflow_info.start_time,
-            "status": self.mlflow_info.status,
-            "user_id": self.mlflow_info.user_id,
-        }
-        return {
-            "is_publishable": self.is_publishable,
-            "root_component": self.root_component,
-            "entry_point": self.entry_point,
-            "parameter_set": self.parameter_set,
-            "component_spec": self.component_spec,
-            "artifacts": artifact_paths,
-            "info": mlflow_info_dict,
-            "data": self.mlflow_data.to_dictionary(),
-        }
-
-    def _get_artifact_paths(self) -> List[Path]:
-        artifacts_dir = self.get_artifacts_dir_path()
-        artifact_paths = []
-        skipped_artifacts = [
-            self.PARAM_ARTIFACT_KEY,
-            self.REGISTRY_ARTIFACT_KEY,
-        ]
-        for name in os.listdir(self.get_artifacts_dir_path()):
-            if name in skipped_artifacts:
-                continue
-            artifact_paths.append(artifacts_dir / name)
-
-        exist = [p.exists() for p in artifact_paths]
-        assert all(exist), f"Missing artifact paths: {artifact_paths}, {exist}"
-        return artifact_paths
+        return self._mlflow_run.to_dictionary()
 
     def log_parameter_set(self, params: ParameterSet) -> None:
-        self.log_dict(self.PARAM_ARTIFACT_KEY, params.to_spec())
+        mlflow.log_parameters(params.to_spec())
 
     def log_component_spec(self, root_component: "Component") -> None:
         frozen = None
@@ -380,9 +362,8 @@ class Run:
         except (BadGitStateException, NoLocalPathException) as exc:
             print(f"Warning: component is not publishable: {str(exc)}")
             spec = root_component.to_spec()
-            # FIXME - Will need to be adapted for WebRegistry
-            self.log_data_as_yaml_artifact(self.REGISTRY_ARTIFACT_KEY, spec)
-        mlflow.log_param(self.IS_FROZEN_KEY, frozen is not None)
+            mlflow.log_dict(self.ROOT_COMPONENT_SPEC_FILENAME, spec)
+        mlflow.log_tag(self.IS_FROZEN_KEY, frozen is not None)
 
     def log_call(self, root_name: str, fn_name: str) -> None:
         mlflow.log_param(self.ROOT_COMPONENT_ID_KEY, root_name)

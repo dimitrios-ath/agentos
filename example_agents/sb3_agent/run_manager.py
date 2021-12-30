@@ -81,7 +81,7 @@ class SB3RunManager(AgentRunManager):
         for run in runs:
             if run is None:
                 continue
-            artifacts_uri = run.mlflow_info.artifact_uri
+            artifacts_uri = run.info.artifact_uri
             if "file://" != artifacts_uri[:7]:
                 raise Exception(f"Non-local artifacts path: {artifacts_uri}")
             artifacts_dir = Path(artifacts_uri[7:]).absolute()
