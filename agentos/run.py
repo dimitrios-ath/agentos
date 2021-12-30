@@ -39,7 +39,7 @@ class Run:
     MLFLOW_EXPERIMENT_ID = "0"
     IS_FROZEN_KEY = "agentos.spec_is_frozen"
     ROOT_COMPONENT_ID_KEY = "agentos.root_component_id"
-    ROOT_COMPONENT_SPEC_FILENAME = "agentos.root_component_spec"
+    ROOT_COMPONENT_REGISTRY_FILENAME = "agentos.root_component_registry"
     PARAM_SET_KEY = "agentos.parameter_set"
     ENTRY_POINT = "agentos.entrypoint"
 
@@ -137,7 +137,7 @@ class Run:
     ):
         run = cls(mlflow.start_run(experiment_id=cls.MLFLOW_EXPERIMENT_ID))
         run.log_parameter_set(params)
-        run.log_component_spec(root_component)
+        run.log_component_registry(root_component)
         run.log_call(root_component.identifier.full, fn_name)
         try:
             yield run
@@ -172,7 +172,7 @@ class Run:
 
     @property
     def root_component_spec(self) -> Dict:
-        return self._get_yaml_artifact(self.ROOT_COMPONENT_SPEC_FILENAME)
+        return self._get_yaml_artifact(self.ROOT_COMPONENT_REGISTRY_FILENAME)
 
     @property
     def info(self):
@@ -353,16 +353,27 @@ class Run:
     def log_parameter_set(self, params: ParameterSet) -> None:
         mlflow.log_parameters(params.to_spec())
 
-    def log_component_spec(self, root_component: "Component") -> None:
+    def log_component_registry(self, root_component: "Component") -> None:
+        """
+        Log a Registry for the root component being run, and its full
+        transitive dependency graph of other components as part of this Run.
+        This registry will contain the component spec and repo spec for each
+        component in the root component's dependency graph.
+        """
         frozen = None
         try:
-            frozen = root_component.to_frozen_registry()
-            # FIXME - Will need to be adapted for WebRegistry
-            self.log_data_as_yaml_artifact(self.REGISTRY_ARTIFACT_KEY, frozen)
+            root_id = root_component.identifier
+            frozen_reg = root_component.to_frozen_registry()
+            frozen = frozen_reg.get_component_spec_by_id(root_id)
+            mlflow.log_dict(self.ROOT_COMPONENT_REGISTRY_FILENAME, frozen)
         except (BadGitStateException, NoLocalPathException) as exc:
-            print(f"Warning: component is not publishable: {str(exc)}")
-            spec = root_component.to_spec()
-            mlflow.log_dict(self.ROOT_COMPONENT_SPEC_FILENAME, spec)
+            print(
+                f"Warning: Generating frozen component registry for {root_id} "
+                f"failed while logging it to to run {self.id}. Logging "
+                f"unfrozen component registry run instead.\n{str(exc)}"
+            )
+            unfrozen = root_component.to_registry().to_dict()
+            mlflow.log_dict(self.ROOT_COMPONENT_REGISTRY_FILENAME, unfrozen)
         mlflow.log_tag(self.IS_FROZEN_KEY, frozen is not None)
 
     def log_call(self, root_name: str, fn_name: str) -> None:
