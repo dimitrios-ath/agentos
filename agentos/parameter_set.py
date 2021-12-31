@@ -14,7 +14,7 @@ class ParameterSet:
     """
 
     def __init__(self, parameters: ParameterSetSpec = None):
-        self.parameters = parameters if parameters else {}
+        self._parameters = parameters if parameters else {}
 
     @classmethod
     def from_yaml(cls, file_path) -> "ParameterSet":
@@ -25,16 +25,16 @@ class ParameterSet:
         return ParameterSet(parameters=parameters)
 
     def update(self, component_name: str, fn_name: str, params: Dict) -> None:
-        component_params = self.parameters.get(component_name, {})
+        component_params = self._parameters.get(component_name, {})
         fn_params = component_params.get(fn_name, {})
         fn_params.update(params)
         component_params[fn_name] = fn_params
-        self.parameters[component_name] = component_params
+        self._parameters[component_name] = component_params
 
     def get(self, component_name: str, fn_name: str):
-        component_params = self.parameters.get(component_name, {})
+        component_params = self._parameters.get(component_name, {})
         fn_params = component_params.get(fn_name, {})
         return fn_params if fn_params else {}
 
     def to_spec(self) -> ParameterSetSpec:
-        return copy.deepcopy(self.parameters)
+        return copy.deepcopy(self._parameters)

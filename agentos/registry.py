@@ -202,7 +202,6 @@ class InMemoryRegistry(Registry):
     def __init__(self, input_dict: Dict = None, base_dir: str = None):
         super().__init__(base_dir)
         self._registry = input_dict if input_dict else {}
-        print(f"input_dict is {input_dict}")
         if "components" not in self._registry.keys():
             self._registry["components"] = {}
         if "repos" not in self._registry.keys():

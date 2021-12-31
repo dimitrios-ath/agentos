@@ -1,7 +1,7 @@
 import sys
 import uuid
 import importlib
-from typing import TypeVar, Dict, Type, Any, Optional, Sequence
+from typing import Union, TypeVar, Dict, Type, Any, Optional, Sequence
 from rich import print as rich_print
 from rich.tree import Tree
 from agentos.run import Run
@@ -13,7 +13,7 @@ from agentos.registry import (
     RegistryException,
 )
 from agentos.repo import Repo, InMemoryRepo, GitHubRepo
-from agentos.parameter_set import ParameterSet
+from agentos.parameter_set import ParameterSet, ParameterSetSpec
 
 # Use Python generics (https://mypy.readthedocs.io/en/stable/generics.html)
 T = TypeVar("T")
@@ -182,11 +182,16 @@ class Component:
     def run(
         self,
         fn_name: str,
-        params: ParameterSet = None,
+        params: Union[ParameterSet, ParameterSetSpec] = None,
         tracked: bool = True,
         instance: Any = None,
     ) -> Optional[Run]:
-        params = params if params else ParameterSet()
+        if params:
+            if not isinstance(params, ParameterSet):
+                params = ParameterSet(params)
+                print("setting params to be a ParameterSet(passed in dict)")
+        else:
+            params = ParameterSet()
         tracking_args = {
             "root_component": self,
             "fn_name": fn_name,

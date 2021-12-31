@@ -21,27 +21,34 @@ from agentos.identifiers import RunIdentifier
 if TYPE_CHECKING:
     from agentos.component import Component
 
-"""
-An MLflow Run is a thin container that holds an RunData and RunInfo object.
-RunInfo contains the run metadata (id, user, timestamp, etc.)
-RunData contains metrics, params, and tags. each is a dict
-
-In MLflow, the concept of a EntryPoint exists in the context of a Project run.
-A Project Run is a wrapper around an MLflow tracking Run. A project Run
-uses Run Tags to log all sorts of metadata, including the entry point per
-https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/projects/utils.py#L225
-and 
-https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/utils/mlflow_tags.py
-"""
-
 
 class Run:
-    MLFLOW_EXPERIMENT_ID = "0"
+    """
+    An AgentOS Run is a wrapper around an MLflow Run.
+
+    An MLflow Run is a thin container that holds an RunData and RunInfo object.
+    RunInfo contains the run metadata (id, user, timestamp, etc.)
+    RunData contains metrics, params, and tags. each is a dict
+
+    In MLflow, an entry point exists in the context of a Project Run.
+    A Project Run is a wrapper around an MLflow tracking Run. A project Run
+    uses Run Tags to log all sorts of metadata, including the entry point, per
+    https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/projects/utils.py#L225
+    and
+    https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/utils/mlflow_tags.py
+
+    AgentOS Run related abstractions are encoded into an MLflowRun as follows:
+    - Component Registry incl. root, dependencies, repos -> Artifact yaml file
+    - Entry point string -> MLflow run tag (MlflowRun.data.tags entry)
+    - ParameterSet -> MLflow run params (MLflowRun.data.params dict)
+    """
+
+    DEFAULT_EXPERIMENT_ID = "0"
     IS_FROZEN_KEY = "agentos.spec_is_frozen"
     ROOT_COMPONENT_ID_KEY = "agentos.root_component_id"
-    ROOT_COMPONENT_REGISTRY_FILENAME = "agentos.root_component_registry"
+    ROOT_COMPONENT_REGISTRY_FILENAME = "agentos.components.yaml"
     PARAM_SET_KEY = "agentos.parameter_set"
-    ENTRY_POINT = "agentos.entrypoint"
+    ENTRY_POINT_KEY = "agentos.entrypoint"
 
     def __init__(self, mlflow_run: MLflowRun) -> None:
         self._mlflow_run = mlflow_run
@@ -63,9 +70,10 @@ class Run:
         return cls(mlflow_run)
 
     @staticmethod
-    def get_all_runs() -> List["Run"]:
+    def get_all_runs(experiment_id: str = None) -> List["Run"]:
+        exp_id = experiment_id if experiment_id else Run.DEFAULT_EXPERIMENT_ID
         run_infos = mlflow.list_run_infos(
-            experiment_id=Run.MLFLOW_EXPERIMENT_ID,
+            experiment_id=exp_id,
             order_by=["attribute.end_time DESC"],
         )
         runs = [
@@ -106,8 +114,14 @@ class Run:
         return cls(mlflow.active_run())
 
     @staticmethod
-    def log_param(name, value):
-        mlflow.log_param(name, value)
+    def log_param(
+        class_name: str, function_name: str, param_name: str,  value: str
+    ):
+        mlflow.log_param(class_name, {function_name: {param_name: value}})
+
+    @staticmethod
+    def log_parameter_set(param_set: ParameterSet) -> None:
+        mlflow.log_params(param_set.to_spec())
 
     @staticmethod
     def log_metric(name, value):
@@ -124,24 +138,33 @@ class Run:
         fn_name: str,
         params: ParameterSet,
         tracked: bool,
+        experiment_id: str = None
     ):
         if not tracked:
             return cls._untracked_run()
         else:
-            return cls._tracked_run(root_component, fn_name, params)
+            return cls._tracked_run(
+                root_component, fn_name, params, experiment_id
+            )
 
     @classmethod
     @contextmanager
     def _tracked_run(
-        cls, root_component: "Component", fn_name: str, params: ParameterSet
+        cls,
+        root_component: "Component",
+        fn_name: str,
+        params: ParameterSet,
+        experiment_id: str = None
     ):
-        run = cls(mlflow.start_run(experiment_id=cls.MLFLOW_EXPERIMENT_ID))
-        run.log_parameter_set(params)
-        run.log_component_registry(root_component)
-        run.log_call(root_component.identifier.full, fn_name)
+        exp_id = experiment_id if experiment_id else cls.DEFAULT_EXPERIMENT_ID
+        run = cls(mlflow.start_run(experiment_id=exp_id))
         try:
+            run.log_parameter_set(params)
+            run.log_component(root_component)
+            run.log_call(root_component.identifier.full, fn_name)
             yield run
         finally:
+            print("calling end_run() in finally")
             mlflow.end_run()
 
     @classmethod
@@ -155,6 +178,10 @@ class Run:
     @property
     def id(self) -> str:
         return self._mlflow_run.info.run_id
+
+    @property
+    def experiment_id(self) -> str:
+        return self._mlflow_run.info.experiment_id
 
     @property
     def entry_point(self) -> str:
@@ -288,7 +315,7 @@ class Run:
             tar.extractall(path=tmp_dir_path)
 
             # Log new MLflow runs for this new dir.
-            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
+            mlflow.start_run(experiment_id=Run.DEFAULT_EXPERIMENT_ID)
             mlflow.set_tag(
                 AgentRunManager.RUN_TYPE_TAG, AgentRunManager.LEARN_KEY
             )
@@ -300,7 +327,7 @@ class Run:
                 "step_count", self.metrics["training_step_count"]
             )
             mlflow.end_run()
-            mlflow.start_run(experiment_id=Run.MLFLOW_EXPERIMENT_ID)
+            mlflow.start_run(experiment_id=Run.DEFAULT_EXPERIMENT_ID)
             mlflow.set_tag(
                 AgentRunManager.RUN_TYPE_TAG, AgentRunManager.RESTORE_KEY
             )
@@ -347,25 +374,24 @@ class Run:
         else:
             pprint.pprint(self.to_spec())
 
-    def to_spec(self) -> RunSpec:
-        return self._mlflow_run.to_dictionary()
-
-    def log_parameter_set(self, params: ParameterSet) -> None:
-        mlflow.log_parameters(params.to_spec())
-
-    def log_component_registry(self, root_component: "Component") -> None:
+    def log_component(self, root_component: "Component") -> None:
         """
         Log a Registry for the root component being run, and its full
         transitive dependency graph of other components as part of this Run.
         This registry will contain the component spec and repo spec for each
         component in the root component's dependency graph.
+
+        Note that a Run contains the full dependency graph for a the
+        root component, and as such does not depend on a Registry to provide
+        reproducibility. Like a Component, a Run (including its entry point,
+        parameter_set, root component, and the root component's full
+        dependency graph) can be dumped into a Registry for sharing purposes.
         """
         frozen = None
         try:
             root_id = root_component.identifier
-            frozen_reg = root_component.to_frozen_registry()
-            frozen = frozen_reg.get_component_spec_by_id(root_id)
-            mlflow.log_dict(self.ROOT_COMPONENT_REGISTRY_FILENAME, frozen)
+            frozen = root_component.to_frozen_registry()
+            mlflow.log_dict(frozen, self.ROOT_COMPONENT_REGISTRY_FILENAME)
         except (BadGitStateException, NoLocalPathException) as exc:
             print(
                 f"Warning: Generating frozen component registry for {root_id} "
@@ -373,9 +399,13 @@ class Run:
                 f"unfrozen component registry run instead.\n{str(exc)}"
             )
             unfrozen = root_component.to_registry().to_dict()
-            mlflow.log_dict(self.ROOT_COMPONENT_REGISTRY_FILENAME, unfrozen)
-        mlflow.log_tag(self.IS_FROZEN_KEY, frozen is not None)
+            print(f"logging {unfrozen}")
+            mlflow.log_dict(unfrozen, self.ROOT_COMPONENT_REGISTRY_FILENAME)
+        mlflow.set_tag(self.IS_FROZEN_KEY, frozen is not None)
 
     def log_call(self, root_name: str, fn_name: str) -> None:
         mlflow.log_param(self.ROOT_COMPONENT_ID_KEY, root_name)
         mlflow.log_param(self.ENTRY_POINT_KEY, fn_name)
+
+    def to_spec(self) -> RunSpec:
+        return self._mlflow_run.to_dictionary()
