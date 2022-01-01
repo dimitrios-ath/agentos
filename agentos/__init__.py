@@ -14,6 +14,8 @@ from agentos.registry import Registry
 from agentos.component import Component
 from agentos.repo import Repo
 from agentos.parameter_set import ParameterSet
+from agentos.run import Run
+from agentos.specs import ComponentSpec, RepoSpec, ParameterSetSpec, RunSpec
 
 __all__ = [
     "Agent",
@@ -27,4 +29,9 @@ __all__ = [
     "Component",
     "Repo",
     "ParameterSet",
+    "Run",
+    "ComponentSpec",
+    "RepoSpec",
+    "ParameterSetSpec",
+    "RunSpec"
 ]

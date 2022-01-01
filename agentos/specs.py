@@ -10,7 +10,11 @@ RepoSpec = Mapping[str, Mapping[str, str]]
 
 # A paramSet is serialized as a ParameterSetSpec, which is a dictionary
 # with the following structure:
-# {class_name: {entry_point_name: {param_name: param_val}}
-ParameterSetSpec = Mapping[object, Mapping[object, Mapping[object, object]]]
+# {component_name: {entry_point_name: {param_name: param_val}}
+ParameterSetSpec = Mapping[str, Mapping[str, Mapping[str, str]]]
 
 RunSpec = Mapping
+RunSpec.identifier_key = "identifier"
+RunSpec.component_id_key = "component_id"
+RunSpec.entry_point_key = "entry_point"
+RunSpec.parameter_set_key = "parameter_set"

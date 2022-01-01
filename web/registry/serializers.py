@@ -33,10 +33,10 @@ class ComponentSerializer(serializers.ModelSerializer):
         ]
 
     def get_id_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.id)
+        return _get_link_from_id(self, "component-detail", obj.identifier)
 
     def get_repo_link(self, obj):
-        return _get_link_from_id(self, "repo-detail", obj.repo.id)
+        return _get_link_from_id(self, "repo-detail", obj.repo.identifier)
 
     def get_github_source_link(self, obj):
         github_url = obj.repo.github_url
@@ -76,22 +76,22 @@ class RunSerializer(serializers.ModelSerializer):
         ]
 
     def get_id_link(self, obj):
-        return _get_link_from_id(self, "run-detail", obj.id)
+        return _get_link_from_id(self, "run-detail", obj.identifier)
 
     def get_root_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.root.id)
+        return _get_link_from_id(self, "component-detail", obj.root.identifier)
 
     def get_agent_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.agent.id)
+        return _get_link_from_id(self, "component-detail", obj.agent.identifier)
 
     def get_environment_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.environment.id)
+        return _get_link_from_id(self, "component-detail", obj.environment.identifier)
 
     def get_download_artifact_tarball_link(self, obj):
-        return _get_link_from_id(self, "run-download-artifact", obj.id)
+        return _get_link_from_id(self, "run-download-artifact", obj.identifier)
 
     def get_root_spec_link(self, obj):
-        return _get_link_from_id(self, "run-root-spec", obj.id)
+        return _get_link_from_id(self, "run-root-spec", obj.identifier)
 
 
 class RepoSerializer(serializers.ModelSerializer):
@@ -107,4 +107,4 @@ class RepoSerializer(serializers.ModelSerializer):
         ]
 
     def get_id_link(self, obj):
-        return _get_link_from_id(self, "repo-detail", obj.id)
+        return _get_link_from_id(self, "repo-detail", obj.identifier)

@@ -137,7 +137,7 @@ class AgentRunManager:
 
     def _get_run_stats(self, run_id=None):
         if run_id is None:
-            run_id = Run.active_run().id
+            run_id = Run.active_run().identifier
         run_data = [d for d in self.episode_data if d["active_run"] == run_id]
         episode_lengths = [d["steps"] for d in run_data]
         episode_returns = [d["reward"] for d in run_data]
@@ -158,7 +158,7 @@ class AgentRunManager:
             {
                 "steps": steps,
                 "reward": reward,
-                "active_run": Run.active_run().id,
+                "active_run": Run.active_run().identifier,
             }
         )
 

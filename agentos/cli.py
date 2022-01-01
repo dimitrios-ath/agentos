@@ -159,8 +159,8 @@ def run(
     entry_point = entry_point or component.get_default_entry_point()
     parameters.update(component_name, entry_point, param_dict)
     run = component.run(entry_point, parameters)
-    print(f"Run {run.id} recorded.  Execute the following for details:")
-    print(f"\n  agentos status {run.id}\n")
+    print(f"Run {run.identifier} recorded.  Execute the following for details:")
+    print(f"\n  agentos status {run.identifier}\n")
 
 
 @agentos_cmd.command()

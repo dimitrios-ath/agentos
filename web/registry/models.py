@@ -150,7 +150,7 @@ class Component(TimeStampedModel):
             if not created and not component._equals_spec(component_spec):
                 raise ValidationError(
                     f"Component with name {name} and version "
-                    f"{component.version} (id: {component.id}) "
+                    f"{component.version} (id: {component.identifier}) "
                     f"already exists and differs from uploaded spec. "
                     f"Try renaming your {name} Component."
                 )

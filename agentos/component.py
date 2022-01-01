@@ -182,33 +182,33 @@ class Component:
     def run(
         self,
         fn_name: str,
-        params: Union[ParameterSet, ParameterSetSpec] = None,
-        tracked: bool = True,
-        instance: Any = None,
-    ) -> Optional[Run]:
+        params: Union[ParameterSet, Dict] = None,
+        publish_to: Registry = None
+    ) -> Run:
         if params:
             if not isinstance(params, ParameterSet):
                 params = ParameterSet(params)
                 print("setting params to be a ParameterSet(passed in dict)")
         else:
             params = ParameterSet()
-        tracking_args = {
-            "root_component": self,
-            "fn_name": fn_name,
-            "params": params,
-            "tracked": tracked,
-        }
-        with Run.track(**tracking_args) as run:
-            instance = (
-                instance if instance else self.get_instance(params=params)
-            )
-            fn = getattr(instance, fn_name)
-            assert fn is not None, f"{instance} has no attr {fn_name}"
-            fn_params = params.get(self.name, fn_name)
-            print(f"Calling {self.name}.{fn_name}(**{fn_params})")
-            # TODO - save result on run
-            fn(**fn_params)
-        return Run.get_by_id(run.id) if run else None
+        run = Run(self, fn_name, params)
+        instance = self.get_instance(params=params)
+        self.call_function_with_param_set(instance, fn_name, params)
+        if publish_to:
+            run.to_registry(publish_to)
+        return run
+
+    def call_function_with_param_set(
+        self,
+        instance: Any,
+        function_name: str,
+        param_set: ParameterSet
+    ) -> Any:
+        fn = getattr(instance, function_name)
+        assert fn is not None, f"{instance} has no attr {function_name}"
+        fn_params = param_set.get(self.name, function_name)
+        print(f"Calling {self.name}.{function_name}(**{fn_params})")
+        return fn(**fn_params)
 
     def add_dependency(
         self, component: "Component", attribute_name: str = None
@@ -219,7 +219,7 @@ class Component:
             attribute_name = component.name
         self.dependencies[attribute_name] = component
 
-    def get_instance(self, params: ParameterSet = None) -> None:
+    def get_instance(self, params: ParameterSet = None) -> T:
         instantiated = {}
         params = params if params else ParameterSet({})
         return self._get_instance(params, instantiated)
@@ -238,7 +238,7 @@ class Component:
             setattr(instance, dep_attr_name, dep_instance)
         setattr(instance, self._dunder_name, self)
         self._managed_cls.__init__ = save_init
-        self.run("__init__", params=params, instance=instance, tracked=False)
+        self.call_function_with_param_set(instance, "__init__", params)
         instantiated[self.name] = instance
         return instance
 
