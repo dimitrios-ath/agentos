@@ -1,17 +1,18 @@
-import mlflow
-import pprint
 from typing import TYPE_CHECKING
-from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from agentos.registry import Registry
-from agentos.parameter_set import ParameterSet
 from agentos.repo import BadGitStateException, NoLocalPathException
 from agentos.specs import RunSpec
 from agentos.identifiers import RunIdentifier
-
+from agentos.tracker import Tracker
 # Avoids cicular imports
 if TYPE_CHECKING:
-    from agentos.component import Component
+    from agentos import Component
+    from agentos.parameter_set import ParameterSet
+
+
+def get_active_run(caller) -> "Run":
+    return caller.__component__.__active_run__
 
 
 class Run:
@@ -44,9 +45,9 @@ class Run:
         self,
         component: "Component",
         entry_point: str,
-        parameter_set: ParameterSet,
+        parameter_set: "ParameterSet",
         experiment_id: str = None,
-        tracker: "Tracker" = None,
+        tracker: Tracker = None,
     ):
         assert not (tracker and experiment_id), (
             "tracker and experiment_id cannot both be passed at the same time."
@@ -60,7 +61,7 @@ class Run:
             self._tracker = tracker
         else:
             self._tracker = Tracker(experiment_id=experiment_id)
-            self._tracker.set_tag(RunSpec.entry_point_key)
+            self._tracker.set_tag(RunSpec.entry_point_key, entry_point)
             self._tracker.log_parameter_set(parameter_set)
             try:
                 component = component.to_frozen_registry(component.identifier)
@@ -68,14 +69,30 @@ class Run:
                 print(
                     "Warning: Generating frozen component registry for "
                     f"{component.identifier} failed while logging it to "
-                    f"run {self.id}. Saving unfrozen component registry "
-                    f"to run instead.\n{str(exc)}"
+                    f"run {self.identifier}. Saving unfrozen component "
+                    f"registry to run instead.\n{str(exc)}"
                 )
             self._tracker.log_component(component)
 
     @property
     def identifier(self):
         return self.tracker.identifier
+
+    @property
+    def component(self):
+        return self._component
+
+    @property
+    def entry_point(self):
+        return self._entry_point
+
+    @property
+    def parameter_set(self):
+        return self._parameter_set
+
+    @property
+    def experiment_id(self):
+        return self._experiment_id
 
     @property
     def tracker(self):
@@ -185,108 +202,3 @@ class Run:
     def is_publishable(self) -> bool:
         # use like: filtered_tags["is_publishable"] = self.is_publishable
         return self._mlflow_run.data.tags[self.IS_FROZEN_KEY] == "True"
-
-
-class Tracker:
-    """
-    An AgentOS Tracker is a wrapper around an MLflow Run.
-
-    An MLflow Run is a thin container that holds an RunData and RunInfo object.
-    RunInfo contains the run metadata (id, user, timestamp, etc.)
-    RunData contains metrics, params, and tags. each is a dict
-
-    AgentOS Run related abstractions are encoded into an MLflowRun as follows:
-    - Component Registry incl. root, dependencies, repos -> artifact yaml file
-    - Entry point string -> MLflow run tag (MlflowRun.data.tags entry)
-    - ParameterSet -> artifact yaml file.
-    """
-
-    DEFAULT_EXPERIMENT_ID = "0"
-    IS_FROZEN_KEY = "agentos.spec_is_frozen"
-    ROOT_COMPONENT_ID_KEY = "agentos.root_component_id"
-    ROOT_COMPONENT_REGISTRY_FILENAME = "agentos.components.yaml"
-    PARAM_SET_FILENAME = "agentos.parameter_set.yaml"
-    ENTRY_POINT_KEY = "agentos.entrypoint"
-
-    def __init__(
-        self,
-        experiment_id: str = None,
-        mlflow_run_id: str = None
-    ) -> None:
-        assert not (experiment_id and mlflow_run_id), (
-            "experiment_id and mlflow_run_id cannot both be specified."
-        )
-        self._mlflow_client = MlflowClient()
-        if mlflow_run_id:
-            try:
-                self._mlflow_client.get_run(mlflow_run_id)
-            except MlflowException as mlflow_exception:
-                print(
-                    "Error: When creating an AgentOS Tracker from an MLflow "
-                    "Run, the MLflow run must be available at the default "
-                    f"tracking URI, and run_id {mlflow_run_id} is not."
-                )
-                raise mlflow_exception
-            self._mlflow_run_id = mlflow_run_id
-        else:
-            if experiment_id:
-                exp_id = experiment_id
-            else:
-                exp_id = self.DEFAULT_EXPERIMENT_ID
-            new_run = self._mlflow_client.create_run(exp_id)
-            self._mlflow_run_id = new_run.info.run_id
-
-    def __del__(self):
-        self._mlflow_client.set_terminated(self._mlflow_run_id)
-
-    @property
-    def _mlflow_run(self):
-        return self._mlflow_client.get_run(self._mlflow_run_id)
-
-    def __getattr__(self, attr_name):
-        try:
-            return getattr(self._mlflow_run, attr_name)
-        except AttributeError:
-            raise AttributeError(
-                f"No attribute '{attr_name}' could be found in either "
-                f"'{self.__class__} or the MLflowRun object it is wrapping."
-            )
-
-    @property
-    def identifier(self) -> str:
-        return self._mlflow_run.info.run_id
-
-    def log_component(self, root_component: "Component") -> None:
-        """
-        Log a Registry YAML file for the root component being run, and its full
-        transitive dependency graph of other components as part of this Run.
-        This registry file will contain the component spec and repo spec for
-        each component in the root component's dependency graph. Note that a
-        Run object contains a component object and thus the root component's
-        full dependency graph of other components, and as such does not depend
-        on a Registry to provide reproducibility. Like a Component, a Run
-        (including its entry point, parameter_set, root component, and the root
-        component's full dependency graph) can be dumped into a Registry for
-        sharing purposes, which essentially normalizes the Run's root
-        component's dependency graph into flat component specs.
-        """
-        component_dict = root_component.to_registry().to_dict()
-        mlflow.log_dict(component_dict, self.ROOT_COMPONENT_REGISTRY_FILENAME)
-
-    def log_parameter_set(self, param_set: ParameterSet) -> None:
-        self._mlflow_client.log_dict(
-            self._mlflow_run_id,
-            param_set.to_spec(),
-            self.PARAM_SET_FILENAME
-        )
-
-    def print_status(self, detailed: bool = False) -> None:
-        if not detailed:
-            filtered_tags = {
-                k: v
-                for k, v in self.tags.items()
-                if not k.startswith("mlflow.")
-            }
-            print(f"\tRun {self.identifier}: {filtered_tags}")
-        else:
-            pprint.pprint(self.to_spec())

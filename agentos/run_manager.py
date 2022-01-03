@@ -4,6 +4,7 @@ from collections import namedtuple
 from agentos.component import Component
 from agentos.run import Run
 from agentos.registry import Registry
+from agentos.run import get_active_run
 
 
 _EPISODE_KEY = "episode_count"
@@ -38,6 +39,7 @@ class AgentRunManager:
 
     def __init__(self, *args, **kwargs):
         self.episode_data = []
+        self._tracker = agentos.get_active_run().tracker
 
         def evaluate_run_manager(
             agent_name: str = None, environment_name: str = None
@@ -68,13 +70,13 @@ class AgentRunManager:
         self._log_run_type()
 
     def log_agent_name(self, agent_name: str) -> None:
-        Run.log_param(self.AGENT_NAME_KEY, agent_name)
+        Run.tracker.log_param(self.AGENT_NAME_KEY, agent_name)
 
     def log_environment_name(self, environment_name: str) -> None:
-        Run.log_param(self.ENV_NAME_KEY, environment_name)
+        Run.tracker.log_param(self.ENV_NAME_KEY, environment_name)
 
     def _log_run_type(self) -> None:
-        Run.set_tag(self.RUN_TYPE_TAG, self.run_type)
+        Run.tracker.set_tag(self.RUN_TYPE_TAG, self.run_type)
 
     def log_run_metrics(self):
         assert self.episode_data, "No episode data!"
@@ -198,9 +200,9 @@ class RunContextManager:
                 f"{expected_name}.  Run will not be publishable."
             )
             self.components_exist = False
-            Run.log_param(f"{role_type}_exists", False)
+            Run.tracker.log_param(f"{role_type}_exists", False)
         else:
-            Run.log_param(f"{role_type}_exists", True)
+            Run.tracker.log_param(f"{role_type}_exists", True)
 
     def __enter__(self) -> None:
         self.run_manager.start_run_type(self.run_type)
