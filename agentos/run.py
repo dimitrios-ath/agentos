@@ -1,18 +1,14 @@
 from typing import TYPE_CHECKING
 from mlflow.exceptions import MlflowException
 from agentos.registry import Registry
-from agentos.repo import BadGitStateException, NoLocalPathException
+from agentos.exceptions import BadGitStateException, NoLocalPathException
 from agentos.specs import RunSpec
 from agentos.identifiers import RunIdentifier
 from agentos.tracker import Tracker
-# Avoids cicular imports
+# Avoids circular imports
 if TYPE_CHECKING:
     from agentos import Component
     from agentos.parameter_set import ParameterSet
-
-
-def get_active_run(caller) -> "Run":
-    return caller.__component__.__active_run__
 
 
 class Run:
@@ -114,7 +110,7 @@ class Run:
             registry, run_spec[RunSpec.component_id_key]
         )
         try:
-            tracker = Tracker(mlflow_run_id=run_spec[RunSpec.identifier_key])
+            tracker = Tracker(identifier=run_spec[RunSpec.identifier_key])
         except MlflowException as e:
             if fail_on_mlflow_run_not_found:
                 raise e

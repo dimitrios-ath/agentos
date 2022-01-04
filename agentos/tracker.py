@@ -1,17 +1,60 @@
 import pprint
 import mlflow
+from typing import Any
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
 from agentos.parameter_set import ParameterSet
+from agentos.exceptions import PythonComponentSystemException
+
+
+def get_tracker(caller: Any, fail_if_no_active_run: bool = False) -> "Tracker":
+    """
+    A helper function for developer to to use
+    """
+    from agentos.component import Component
+    if isinstance(caller, Component):
+        component = caller
+    else:
+        try:
+            component = caller.__component__
+        except AttributeError:
+            print(
+                "get_tracker() was called on an object that is not "
+                "managed by a Component. Specifically, the object passed to "
+                "get_tracker() must have a ``__component__`` attribute."
+            )
+    if not component.active_run:
+        if fail_if_no_active_run:
+            raise PythonComponentSystemException(
+                "get_tracker() was passed an object managed by a Component "
+                "with no active_run, and fail_if_no_active_run flag was True."
+            )
+        else:
+            tracker = Tracker()
+            print(
+                "Warning: the object passed to get_tracker() is managed by a "
+                "Component that has no active_run. Returning a new tracker "
+                f"(id: {tracker.identifier}that is not associated with any "
+                "Run object."
+            )
+        return tracker
+    else:
+        return component.active_run.tracker
 
 
 class Tracker:
     """
-    An AgentOS Tracker is a wrapper around an MLflow Run.
+    A tracker is an object used to record output from running code.
+    Trackers are similar to a logger but provides a bit more structure
+    than loggers traditionally do.
+
+    For more on the difference between Run and Tracker, see :py:func:Run:.
+
+    Currently, an AgentOS Tracker is a wrapper around an MLflow Run.
 
     An MLflow Run is a thin container that holds an RunData and RunInfo object.
     RunInfo contains the run metadata (id, user, timestamp, etc.)
-    RunData contains metrics, params, and tags. each is a dict
+    RunData contains metrics, params, and tags; each of which is a dict.
 
     AgentOS Run related abstractions are encoded into an MLflowRun as follows:
     - Component Registry incl. root, dependencies, repos -> artifact yaml file
@@ -39,23 +82,24 @@ class Tracker:
     def __init__(
         self,
         experiment_id: str = None,
-        mlflow_run_id: str = None
+        identifier: str = None
     ) -> None:
-        assert not (experiment_id and mlflow_run_id), (
+        assert not (experiment_id and identifier), (
             "experiment_id and mlflow_run_id cannot both be specified."
         )
         self._mlflow_client = MlflowClient()
-        if mlflow_run_id:
+        if identifier:
             try:
-                self._mlflow_client.get_run(mlflow_run_id)
+                self._mlflow_client.get_run(identifier)
             except MlflowException as mlflow_exception:
                 print(
-                    "Error: When creating an AgentOS Tracker from an MLflow "
-                    "Run, the MLflow run must be available at the default "
-                    f"tracking URI, and run_id {mlflow_run_id} is not."
+                    "Error: When creating an AgentOS Tracker using an "
+                    "existing MLflow Run ID, an MLflow run with that ID must "
+                    "be available at the default tracking URI, and "
+                    f"run_id {identifier} is not."
                 )
                 raise mlflow_exception
-            self._mlflow_run_id = mlflow_run_id
+            self._mlflow_run_id = identifier
         else:
             if experiment_id:
                 exp_id = experiment_id

@@ -55,6 +55,7 @@ class Component:
         self.dependencies = dependencies if dependencies else {}
         self._dunder_name = dunder_name or "__component__"
         self._requirements = []
+        self.active_run = None
 
     @classmethod
     def from_default_registry(
@@ -185,15 +186,20 @@ class Component:
         params: Union[ParameterSet, Dict] = None,
         publish_to: Registry = None
     ) -> Run:
+        assert not self.active_run, (
+            f"Component {self.identifier} already has an active_run, so a "
+            "new run is not allowed."
+        )
         if params:
             if not isinstance(params, ParameterSet):
                 params = ParameterSet(params)
-                print("setting params to be a ParameterSet(passed in dict)")
         else:
             params = ParameterSet()
         run = Run(self, fn_name, params)
+        self.active_run = run
         instance = self.get_instance(params=params)
         self.call_function_with_param_set(instance, fn_name, params)
+        self.active_run = None
         if publish_to:
             run.to_registry(publish_to)
         return run

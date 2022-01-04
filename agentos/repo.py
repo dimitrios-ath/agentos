@@ -9,20 +9,14 @@ from dulwich.repo import Repo as PorcelainRepo
 from dulwich.objectspec import parse_ref
 from dulwich.objectspec import parse_commit
 from dulwich.errors import NotGitRepository
+
+from agentos.exceptions import BadGitStateException, NoLocalPathException
 from agentos.utils import AOS_CACHE_DIR
 from agentos import component
 from agentos.specs import RepoSpec
 
 # Use Python generics (https://mypy.readthedocs.io/en/stable/generics.html)
 T = TypeVar("T")
-
-
-class BadGitStateException(Exception):
-    pass
-
-
-class NoLocalPathException(Exception):
-    pass
 
 
 class RepoType(Enum):

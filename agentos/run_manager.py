@@ -4,7 +4,7 @@ from collections import namedtuple
 from agentos.component import Component
 from agentos.run import Run
 from agentos.registry import Registry
-from agentos.run import get_active_run
+from agentos.tracker import get_tracker
 
 
 _EPISODE_KEY = "episode_count"
@@ -39,7 +39,7 @@ class AgentRunManager:
 
     def __init__(self, *args, **kwargs):
         self.episode_data = []
-        self._tracker = agentos.get_active_run().tracker
+        self._tracker = get_tracker(self)
 
         def evaluate_run_manager(
             agent_name: str = None, environment_name: str = None
@@ -70,13 +70,13 @@ class AgentRunManager:
         self._log_run_type()
 
     def log_agent_name(self, agent_name: str) -> None:
-        Run.tracker.log_param(self.AGENT_NAME_KEY, agent_name)
+        self.tracker.log_param(self.AGENT_NAME_KEY, agent_name)
 
     def log_environment_name(self, environment_name: str) -> None:
-        Run.tracker.log_param(self.ENV_NAME_KEY, environment_name)
+        self.tracker.log_param(self.ENV_NAME_KEY, environment_name)
 
     def _log_run_type(self) -> None:
-        Run.tracker.set_tag(self.RUN_TYPE_TAG, self.run_type)
+        self.tracker.set_tag(self.RUN_TYPE_TAG, self.run_type)
 
     def log_run_metrics(self):
         assert self.episode_data, "No episode data!"
