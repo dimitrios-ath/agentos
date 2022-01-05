@@ -194,7 +194,7 @@ def publish_run(entity_id):
 @agentos_cmd.command()
 @_arg_run_id
 def get_run(run_id):
-    Registry.get_default().get_run(run_id)
+    Registry.get_default().get_active(run_id)
 
 
 @agentos_cmd.command()

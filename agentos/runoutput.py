@@ -7,44 +7,9 @@ from agentos.parameter_set import ParameterSet
 from agentos.exceptions import PythonComponentSystemException
 
 
-def get_tracker(caller: Any, fail_if_no_active_run: bool = False) -> "Tracker":
+class RunOutput:
     """
-    A helper function for developer to to use
-    """
-    from agentos.component import Component
-    if isinstance(caller, Component):
-        component = caller
-    else:
-        try:
-            component = caller.__component__
-        except AttributeError:
-            print(
-                "get_tracker() was called on an object that is not "
-                "managed by a Component. Specifically, the object passed to "
-                "get_tracker() must have a ``__component__`` attribute."
-            )
-    if not component.active_run:
-        if fail_if_no_active_run:
-            raise PythonComponentSystemException(
-                "get_tracker() was passed an object managed by a Component "
-                "with no active_run, and fail_if_no_active_run flag was True."
-            )
-        else:
-            tracker = Tracker()
-            print(
-                "Warning: the object passed to get_tracker() is managed by a "
-                "Component that has no active_run. Returning a new tracker "
-                f"(id: {tracker.identifier}that is not associated with any "
-                "Run object."
-            )
-        return tracker
-    else:
-        return component.active_run.tracker
-
-
-class Tracker:
-    """
-    A tracker is an object used to record output from running code.
+    A run_output is an object used to record output from running code.
     Trackers are similar to a logger but provides a bit more structure
     than loggers traditionally do.
 
@@ -110,6 +75,41 @@ class Tracker:
 
     def __del__(self):
         self._mlflow_client.set_terminated(self._mlflow_run_id)
+
+    @staticmethod
+    def get_active(caller: Any, fail_if_no_active_run: bool = False) -> "RunOutput":
+        """
+        A helper function.
+        """
+        from agentos.component import Component
+        if isinstance(caller, Component):
+            component = caller
+        else:
+            try:
+                component = caller.__component__
+            except AttributeError:
+                print(
+                    "get_run_output() was called on an object that is not "
+                    "managed by a Component. Specifically, the object passed to "
+                    "get_run_output() must have a ``__component__`` attribute."
+                )
+        if not component.active_run:
+            if fail_if_no_active_run:
+                raise PythonComponentSystemException(
+                    "get_run_output() was passed an object managed by a Component "
+                    "with no active_run, and fail_if_no_active_run flag was True."
+                )
+            else:
+                run_output = RunOutput()
+                print(
+                    "Warning: the object passed to get_run_output() is managed by a "
+                    "Component that has no active_run. Returning a new run_output "
+                    f"(id: {run_output.identifier}that is not associated with any "
+                    "Run object."
+                )
+            return run_output
+        else:
+            return component.active_run.run_output
 
     @property
     def _mlflow_run(self):
@@ -183,3 +183,7 @@ class Tracker:
             print(f"\tRun {self.identifier}: {filtered_tags}")
         else:
             pprint.pprint(self.to_spec())
+
+    def to_spec(self) -> RunOutput:
+        raise NotImplementedError
+

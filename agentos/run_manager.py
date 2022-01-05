@@ -4,7 +4,7 @@ from collections import namedtuple
 from agentos.component import Component
 from agentos.run import Run
 from agentos.registry import Registry
-from agentos.tracker import get_tracker
+from agentos.runoutput import get_run_output
 
 
 _EPISODE_KEY = "episode_count"
@@ -39,7 +39,7 @@ class AgentRunManager:
 
     def __init__(self, *args, **kwargs):
         self.episode_data = []
-        self._tracker = get_tracker(self)
+        self._tracker = get_run_output(self)
 
         def evaluate_run_manager(
             agent_name: str = None, environment_name: str = None
@@ -200,9 +200,9 @@ class RunContextManager:
                 f"{expected_name}.  Run will not be publishable."
             )
             self.components_exist = False
-            Run.tracker.log_param(f"{role_type}_exists", False)
+            Run.run_output.log_param(f"{role_type}_exists", False)
         else:
-            Run.tracker.log_param(f"{role_type}_exists", True)
+            Run.run_output.log_param(f"{role_type}_exists", True)
 
     def __enter__(self) -> None:
         self.run_manager.start_run_type(self.run_type)

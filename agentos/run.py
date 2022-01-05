@@ -4,7 +4,7 @@ from agentos.registry import Registry
 from agentos.exceptions import BadGitStateException, NoLocalPathException
 from agentos.specs import RunSpec
 from agentos.identifiers import RunIdentifier
-from agentos.tracker import Tracker
+from agentos.runoutput import RunOutput
 # Avoids circular imports
 if TYPE_CHECKING:
     from agentos import Component
@@ -42,23 +42,17 @@ class Run:
         component: "Component",
         entry_point: str,
         parameter_set: "ParameterSet",
-        experiment_id: str = None,
-        tracker: Tracker = None,
     ):
-        assert not (tracker and experiment_id), (
-            "tracker and experiment_id cannot both be passed at the same time."
-        )
         self._component = component
         self._entry_point = entry_point
         self._parameter_set = parameter_set
-        self._experiment_id = experiment_id
 
-        if tracker:
-            self._tracker = tracker
+        if run_output:
+            self._run_output = run_output
         else:
-            self._tracker = Tracker(experiment_id=experiment_id)
-            self._tracker.set_tag(RunSpec.entry_point_key, entry_point)
-            self._tracker.log_parameter_set(parameter_set)
+            self._run_output = RunOutput(experiment_id=experiment_id)
+            self._run_output.set_tag(RunSpec.entry_point_key, entry_point)
+            self._run_output.log_parameter_set(parameter_set)
             try:
                 component = component.to_frozen_registry(component.identifier)
             except (BadGitStateException, NoLocalPathException) as exc:
@@ -68,11 +62,11 @@ class Run:
                     f"run {self.identifier}. Saving unfrozen component "
                     f"registry to run instead.\n{str(exc)}"
                 )
-            self._tracker.log_component(component)
+            self._run_output.log_component(component)
 
     @property
     def identifier(self):
-        return self.tracker.identifier
+        return self.run_output.identifier
 
     @property
     def component(self):
@@ -91,8 +85,8 @@ class Run:
         return self._experiment_id
 
     @property
-    def tracker(self):
-        return self._tracker
+    def run_output(self):
+        return self._run_output
 
     @classmethod
     def from_default_registry(cls, run_id: RunIdentifier) -> "Run":
@@ -105,19 +99,19 @@ class Run:
         run_id: RunIdentifier,
         fail_on_mlflow_run_not_found: bool = False
     ) -> "Run":
-        run_spec = registry.get_run_spec(run_id)
+        run_spec = registry.get_run_input_spec(run_id)
         component = Component.from_registry(
             registry, run_spec[RunSpec.component_id_key]
         )
         try:
-            tracker = Tracker(identifier=run_spec[RunSpec.identifier_key])
+            run_output = RunOutput(identifier=run_spec[RunSpec.identifier_key])
         except MlflowException as e:
             if fail_on_mlflow_run_not_found:
                 raise e
-            tracker = Tracker()
+            run_output = RunOutput()
             print(
-                f"Creating a new MLflowRun (with id {tracker.identifier}) to "
-                "back this Run object since MLflow was unable to retrieve "
+                f"Creating a new MLflowRun (with id {run_output.identifier}) "
+                "to back this Run object since MLflow was unable to retrieve "
                 "the MLflowRun that was used in the Run that we are loading "
                 f"from the registry (id: {run_spec[RunSpec.identifier_key]}). "
                 "Use the fail_on_mlflow_run_not_found arg to raise an "
@@ -127,7 +121,7 @@ class Run:
             component=component,
             entry_point=run_spec[RunSpec.entry_point_key],
             parameter_set=run_spec[RunSpec.parameter_set_key],
-            tracker=tracker
+            run_output=run_output
         )
 
     def publish(self) -> None:
@@ -188,10 +182,10 @@ class Run:
 
     def to_spec(self) -> RunSpec:
         return {
-           RunSpec.identifier_key: self.identifier,
-           RunSpec.component_id_key: self._component.identifier,
-           RunSpec.entry_point_key: self._entry_point,
-           RunSpec.parameter_set_key: self._parameter_set.to_spec()
+            RunSpec.identifier_key: self.identifier,
+            RunSpec.component_id_key: self._component.identifier,
+            RunSpec.entry_point_key: self._entry_point,
+            RunSpec.parameter_set_key: self._parameter_set.to_spec(),
         }
 
     @property
