@@ -12,3 +12,7 @@ class BadGitStateException(Exception):
 
 class NoLocalPathException(Exception):
     pass
+
+
+class RegistryException(Exception):
+    pass

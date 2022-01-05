@@ -53,7 +53,10 @@ class ComponentIdentifier:
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.full == other.full
-        return self.full == other
+        elif isinstance(other, str):
+            return self.full == other
+        else:
+            return self is other
 
     def __str__(self):
         return self.full

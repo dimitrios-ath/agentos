@@ -193,8 +193,8 @@ def publish_run(entity_id):
 
 @agentos_cmd.command()
 @_arg_run_id
-def get_run(run_id):
-    Registry.get_default().get_active(run_id)
+def rerun(run_id):
+    Run.from_registry(Registry.get_default(), run_id).rerun()
 
 
 @agentos_cmd.command()

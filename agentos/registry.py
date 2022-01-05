@@ -5,17 +5,17 @@ import json
 import pprint
 import shutil
 import tarfile
-
 import tempfile
 import requests
 from pathlib import Path
 from typing import Dict, Sequence, Union, TYPE_CHECKING
 from dotenv import load_dotenv
 from agentos.identifiers import ComponentIdentifier, RunIdentifier
-
+from agentos.specs import (
+    RepoSpec, ComponentSpec, NestedComponentSpec, RunSpec, RunCommandSpec
+)
 if TYPE_CHECKING:
     from agentos.component import Component
-from agentos.specs import RepoSpec, ComponentSpec, NestedComponentSpec, RunSpec
 
 # add USE_LOCAL_SERVER=True to .env to talk to local server
 load_dotenv()
@@ -26,10 +26,6 @@ if os.getenv("USE_LOCAL_SERVER", False) == "True":
 AOS_WEB_API_EXTENSION = "/api/v1"
 
 AOS_WEB_API_ROOT = f"{AOS_WEB_BASE_URL}{AOS_WEB_API_EXTENSION}"
-
-
-class RegistryException(Exception):
-    pass
 
 
 class Registry(abc.ABC):
@@ -193,6 +189,10 @@ class Registry(abc.ABC):
     def add_run_spec(self, run_spec: RunSpec) -> None:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def add_run_command_spec(self, run_command_spec: RunCommandSpec) -> None:
+        raise NotImplementedError
+
 
 class InMemoryRegistry(Registry):
     """
@@ -208,6 +208,8 @@ class InMemoryRegistry(Registry):
             self._registry["repos"] = {}
         if "runs" not in self._registry.keys():
             self._registry["runs"] = {}
+        if "run_commands" not in self._registry.keys():
+            self._registry["run_commands"] = {}
         if "registries" not in self._registry.keys():
             self._registry["registries"] = []
 
@@ -251,6 +253,9 @@ class InMemoryRegistry(Registry):
 
     def add_run_spec(self, run_spec: RunSpec) -> None:
         self._registry["runs"].update(run_spec)
+
+    def add_run_command_spec(self, run_command_spec: RunCommandSpec) -> None:
+        self._registry["run_commands"].update(run_command_spec)
 
     def to_dict(self) -> Dict:
         return self._registry

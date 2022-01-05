@@ -4,14 +4,14 @@ import importlib
 from typing import Union, TypeVar, Dict, Type, Any, Optional, Sequence
 from rich import print as rich_print
 from rich.tree import Tree
-from agentos.run import Run
+from agentos.run import Run, RunCommand
 from agentos.identifiers import ComponentIdentifier
 from agentos.specs import ComponentSpec
 from agentos.registry import (
     Registry,
     InMemoryRegistry,
-    RegistryException,
 )
+from exceptions import RegistryException
 from agentos.repo import Repo, InMemoryRepo, GitHubRepo
 from agentos.parameter_set import ParameterSet, ParameterSetSpec
 
@@ -195,7 +195,8 @@ class Component:
                 params = ParameterSet(params)
         else:
             params = ParameterSet()
-        run = Run(self, fn_name, params)
+        run_command = RunCommand(self, fn_name, params)
+        run = Run.from_run_command(run_command)
         self.active_run = run
         instance = self.get_instance(params=params)
         self.call_function_with_param_set(instance, fn_name, params)

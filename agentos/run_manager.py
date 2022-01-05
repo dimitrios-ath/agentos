@@ -4,7 +4,6 @@ from collections import namedtuple
 from agentos.component import Component
 from agentos.run import Run
 from agentos.registry import Registry
-from agentos.runoutput import get_run_output
 
 
 _EPISODE_KEY = "episode_count"
@@ -39,7 +38,7 @@ class AgentRunManager:
 
     def __init__(self, *args, **kwargs):
         self.episode_data = []
-        self._tracker = get_run_output(self)
+        self._active_run = Run.active_run(self)
 
         def evaluate_run_manager(
             agent_name: str = None, environment_name: str = None

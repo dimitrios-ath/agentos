@@ -13,9 +13,11 @@ RepoSpec = Mapping[str, Mapping[str, str]]
 # {component_name: {entry_point_name: {param_name: param_val}}
 ParameterSetSpec = Mapping[str, Mapping[str, Mapping[str, str]]]
 
+RunCommandSpec = Mapping
+RunCommandSpec.identifier_key = "identifier"
+RunCommandSpec.component_id_key = "component_id"
+RunCommandSpec.entry_point_key = "entry_point"
+RunCommandSpec.parameter_set_key = "parameter_set"
+
 RunSpec = Mapping
-RunSpec.identifier_key = "identifier"
-RunSpec.component_id_key = "component_id"
-RunSpec.entry_point_key = "entry_point"
-RunSpec.parameter_set_key = "parameter_set"
-RunSpec.tracker_identifier_key = "parameter_set"
+
