@@ -65,3 +65,5 @@ class ComponentIdentifier:
 # MLflow uses strings as Run identifiers, per
 # https://github.com/mlflow/mlflow/blob/v1.22.0/mlflow/entities/run_info.py#L99
 RunIdentifier = str
+
+RunCommandIdentifier = str

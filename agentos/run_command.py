@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 from mlflow.exceptions import MlflowException
 from agentos.registry import Registry
 from agentos.specs import RunSpec, RunCommandSpec
-from agentos.identifiers import RunIdentifier
+from agentos.identifiers import RunIdentifier, RunCommandIdentifier
 # Avoids circular imports
 if TYPE_CHECKING:
     from agentos import Component
@@ -94,33 +94,24 @@ class RunCommand:
     def from_registry(
         cls,
         registry: Registry,
-        run_id: RunIdentifier,
-        fail_on_mlflow_run_not_found: bool = False
+        run_command_id: RunCommandIdentifier,
     ) -> "RunCommand":
-        run_spec = registry.get_run_input_spec(run_id)
-        component = Component.from_registry(
-            registry, run_spec[RunSpec.component_id_key]
-        )
-        try:
-            run_output = RunCommand(identifier=run_spec[RunSpec.identifier_key])
-        except MlflowException as e:
-            if fail_on_mlflow_run_not_found:
-                raise e
-            run_output = RunCommand()
-            print(
-                f"Creating a new MLflowRun (with id {run_output.identifier}) "
-                "to back this RunCommand object since MLflow was unable to retrieve "
-                "the MLflowRun that was used in the RunCommand that we are loading "
-                f"from the registry (id: {run_spec[RunSpec.identifier_key]}). "
-                "Use the fail_on_mlflow_run_not_found arg to raise an "
-                "exception instead."
-            )
-        return cls(
+        run_cmd_spec = registry.get_run_command_spec(run_command_id)
+        return cls.from_spec(run_cmd_spec, registry)
+
+    @classmethod
+    def from_spec(
+        cls, run_cmd_spec: RunCommandSpec, registry: Registry
+    ) -> "RunCommand":
+        component_id = run_cmd_spec[RunCommandSpec.component_id_key]
+        component = Component.from_registry(registry, component_id)
+        new_run_cmd = cls(
             component=component,
-            entry_point=run_spec[RunSpec.entry_point_key],
-            parameter_set=run_spec[RunSpec.parameter_set_key],
-            run_output=run_output
+            entry_point=run_cmd_spec[RunCommandSpec.entry_point_key],
+            parameter_set=run_cmd_spec[RunCommandSpec.parameter_set_key]
         )
+        assert new_run_cmd == run_cmd_spec[RunCommandSpec.identifier_key]
+        return new_run_cmd
 
     def publish(self) -> None:
         """

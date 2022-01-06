@@ -13,12 +13,12 @@ def test_component_run():
     )
     c = Component.from_class(Simple)
     r = c.run("fn", params)
-    assert r.component == c
-    assert r.entry_point == "fn"
+    assert r.run_command.component == c
+    assert r.run_command.entry_point == "fn"
 
 
 def test_run_tracking():
-    from agentos import Run
+    from agentos.run import Run
     run = Run()
     assert run.identifier == run._mlflow_run.info.run_id
     run.log_metric("test_metric", 1)

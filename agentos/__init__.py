@@ -15,7 +15,7 @@ from agentos.component import Component
 from agentos.repo import Repo
 from agentos.parameter_set import ParameterSet
 from agentos.run import Run
-from agentos.runoutput import RunCommand, get_run_output
+from agentos.run_command import RunCommand
 from agentos.specs import ComponentSpec, RepoSpec, ParameterSetSpec, RunSpec
 
 agentos_objs = [
@@ -33,8 +33,7 @@ pcs_objs = [
     "Repo",
     "ParameterSet",
     "Run",
-    "Tracker",
-    "active_tracker",
+    "RunCommand",
     "ComponentSpec",
     "RepoSpec",
     "ParameterSetSpec",

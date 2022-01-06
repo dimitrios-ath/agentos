@@ -8,6 +8,7 @@ from agentos.parameter_set import ParameterSet
 from agentos.exceptions import PythonComponentSystemException
 from agentos.specs import RunSpec
 from agentos.run_command import RunCommand
+from agentos.identifiers import RunIdentifier
 
 
 class Run:
@@ -71,6 +72,7 @@ class Run:
             "experiment_id."
         )
         self._run_command = run_command
+        self._return_value = None
         self._mlflow_client = MlflowClient()
         if existing_run_id:
             try:
@@ -142,14 +144,18 @@ class Run:
 
     @property
     def _mlflow_run(self):
-        return self._mlflow_client.active_run(self._mlflow_run_id)
+        return self._mlflow_client.get_run(self._mlflow_run_id)
 
     @property
     def run_command(self) -> "RunCommand":
         return self._run_command
 
     @property
-    def is_reproducible(self):
+    def return_value(self) -> str:
+        return self._return_value
+
+    @property
+    def is_reproducible(self) -> bool:
         return bool(self.run_command)
 
     @property
@@ -157,11 +163,11 @@ class Run:
         return self._mlflow_run.info.run_id
 
     @property
-    def data(self):
+    def data(self) -> dict:
         return self._mlflow_run.data
 
     @property
-    def info(self):
+    def info(self) -> dict:
         return self._mlflow_run.info
 
     def __getattr__(self, attr_name):
@@ -201,25 +207,83 @@ class Run:
         component's dependency graph into flat component specs.
         """
         component_dict = root_component.to_registry().to_dict()
-        mlflow.log_dict(component_dict, self.ROOT_COMPONENT_REGISTRY_FILENAME)
+        self.log_dict(component_dict, self.ROOT_COMPONENT_REGISTRY_FILENAME)
 
     def log_parameter_set(self, param_set: ParameterSet) -> None:
-        self._mlflow_client.log_dict(
+        self.log_dict(
             self._mlflow_run_id,
             param_set.to_spec(),
             self.PARAM_SET_FILENAME
         )
 
+    def log_return_value(
+        self,
+        ret_val: Any,
+        format: str = "pickle",
+    ):
+        """
+        Logs the return value of an entry_point run using the specified
+        serialization format.
+
+        :param ret_val: The Python object returned by this Run to be logged.
+        :param format: Valid values are 'pickle, 'json', or 'yaml'.
+        """
+        self._return_value = ret_val
+        filename_base = self.identifier + "-return_value"
+        if format == "pickle":
+            import pickle
+            filename = filename_base + ".pickle"
+            with open(filename) as f:
+                pickle.dump(ret_val, f)
+        elif format == "json":
+            import json
+            filename = filename_base + ".json"
+            with open(filename) as f:
+                json.dump(ret_val, f)
+        elif format == "yaml":
+            import yaml
+            filename = filename_base + ".yaml"
+            with open(filename) as f:
+                yaml.dump(ret_val, f)
+        else:
+            raise PythonComponentSystemException("Invalid format provided")
+        self.log_artifact(filename)
+
     def print_status(self, detailed: bool = False) -> None:
         if not detailed:
             filtered_tags = {
                 k: v
-                for k, v in self.tags.items()
+                for k, v in self.data.tags.items()
                 if not k.startswith("mlflow.")
             }
             print(f"\tRun {self.identifier}: {filtered_tags}")
         else:
             pprint.pprint(self.to_spec())
+
+    def from_registry(
+        self,
+        registry: Registry,
+        run_id: RunIdentifier,
+        fail_on_mlflow_run_not_found: bool = False
+    ):
+        run_spec = registry.get_run_spec(run_id)
+        try:
+            run_cmd = Run.from_existing_run_id(
+                identifier=run_spec[]
+            )
+        except MlflowException as e:
+            if fail_on_mlflow_run_not_found:
+                raise e
+            run_cmd = RunCommand()
+            print(
+                f"Creating a new MLflowRun (with id {run.identifier}) "
+                "to back this Run object since MLflow was unable to "
+                "retrieve the MLflowRun that was used in the Run that "
+                "we are loading from the registry (id: "
+                f"{run_spec[RunSpec.identifier_key]}). Use the "
+                "fail_on_mlflow_run_not_found arg to raise an exception "
+                "instead."
+            )
 
     def to_registry(
         self,

@@ -11,7 +11,7 @@ from agentos.registry import (
     Registry,
     InMemoryRegistry,
 )
-from exceptions import RegistryException
+from agentos.exceptions import RegistryException
 from agentos.repo import Repo, InMemoryRepo, GitHubRepo
 from agentos.parameter_set import ParameterSet, ParameterSetSpec
 
@@ -182,10 +182,27 @@ class Component:
 
     def run(
         self,
-        fn_name: str,
+        entry_point: str,
         params: Union[ParameterSet, Dict] = None,
-        publish_to: Registry = None
+        publish_to: Registry = None,
+        log_return_value: bool = True,
+        return_value_log_format: str = "pickle"
     ) -> Run:
+        """
+        Run the specified entry point a new instance of this components
+        managed object given the specified params, log the results
+        and return the Run object.
+
+        :param entry_point: Name of a function to be called on a new
+            instance of this component's managed object.
+        :param params: A :py:func:agentos.parameter_set.ParameterSet: or
+            ParameterSet-like dict containing the entry-point parameters and/or
+            parameters to be passed to the __init__() functions of this
+            component's dependents during managed object initialization.
+        :param publish_to: Optionally, publish the resulting Run object
+            to the provided registry.
+        :param log_return_value: If the return value of this
+        """
         assert not self.active_run, (
             f"Component {self.identifier} already has an active_run, so a "
             "new run is not allowed."
@@ -195,11 +212,13 @@ class Component:
                 params = ParameterSet(params)
         else:
             params = ParameterSet()
-        run_command = RunCommand(self, fn_name, params)
+        run_command = RunCommand(self, entry_point, params)
         run = Run.from_run_command(run_command)
         self.active_run = run
         instance = self.get_instance(params=params)
-        self.call_function_with_param_set(instance, fn_name, params)
+        res = self.call_function_with_param_set(instance, entry_point, params)
+        if log_return_value:
+            run.log_return_value(res, return_value_log_format)
         self.active_run = None
         if publish_to:
             run.to_registry(publish_to)
