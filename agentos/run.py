@@ -1,5 +1,4 @@
 import pprint
-import mlflow
 from typing import Any
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
@@ -61,7 +60,8 @@ class Run:
     ) -> None:
         """
         Consider using class factory methods instead of directly using
-        __init__. For example Run.from_run_command(), Run.from_existing_run_id.
+        __init__. For example: Run.from_run_command(),
+        Run.from_existing_run_id().
 
         :param run_command: Optional RunCommand object.
         :param experiment_id: Optional Experiment ID.
@@ -71,17 +71,22 @@ class Run:
             "existing_run_id cannot be passed with either of run_command or "
             "experiment_id."
         )
-        self._run_command = run_command
-        self._return_value = None
         self._mlflow_client = MlflowClient()
+        self._return_value = None
+        self._run_command = None
         if existing_run_id:
             try:
-                self._mlflow_client.active_run(existing_run_id)
+                self._mlflow_client.get_run(existing_run_id)
+                #component = self.
+                #entry_point =
+                #param_set =
+                #run_command = RunCommand(component, entry_point, param_set)
+                #self.run_command = run_command
             except MlflowException as mlflow_exception:
                 print(
                     "Error: When creating an AgentOS Run using an "
                     "existing MLflow Run ID, an MLflow run with that ID must "
-                    "be available at the default tracking URI, and "
+                    "be available at the current tracking URI, and "
                     f"run_id {existing_run_id} is not."
                 )
                 raise mlflow_exception
@@ -93,6 +98,9 @@ class Run:
                 exp_id = self.DEFAULT_EXPERIMENT_ID
             new_run = self._mlflow_client.create_run(exp_id)
             self._mlflow_run_id = new_run.info.run_id
+
+        if run_command:
+            self.add_run_command(run_command)
 
     def __del__(self):
         self._mlflow_client.set_terminated(self._mlflow_run_id)
@@ -121,26 +129,27 @@ class Run:
             except AttributeError:
                 print(
                     "active_run() was called on an object that is not "
-                    "managed by a Component. Specifically, the object passed to "
-                    "active_run() must have a ``__component__`` attribute."
+                    "managed by a Component. Specifically, the object passed "
+                    "to active_run() must have a ``__component__`` attribute."
                 )
         if not component.active_run:
             if fail_if_no_active_run:
                 raise PythonComponentSystemException(
                     "active_run() was passed an object managed by a Component "
-                    "with no active_run, and fail_if_no_active_run flag was True."
+                    "with no active_run, and fail_if_no_active_run flag was "
+                    "True."
                 )
             else:
                 run = Run()
                 print(
-                    "Warning: the object passed to active_run() is managed by a "
-                    "Component that has no active_run. Returning a new run "
+                    "Warning: the object passed to active_run() is managed by "
+                    "a Component that has no active_run. Returning a new run "
                     f"(id: {run.identifier}that is not associated with any "
                     "Run object."
                 )
             return run
         else:
-            return component.active_run.run
+            return component.active_run
 
     @property
     def _mlflow_run(self):
@@ -180,17 +189,24 @@ class Run:
                 from functools import partial
                 mlflow_client_fn = getattr(self._mlflow_client, attr_name)
                 return partial(mlflow_client_fn, self._mlflow_run_id)
-            except AttributeError:
+            except AttributeError as e:
                 raise AttributeError(
                     f"No attribute '{attr_name}' could be found in either "
                     f"'{self.__class__} or the MlflowClient object it is "
-                    f" wrapping."
+                    f"wrapping. " + str(e)
                 )
         else:
             raise AttributeError(
                 f"type object '{self.__class__}' has no attribute "
                 f"'{attr_name}'"
             )
+
+    def add_run_command(self, run_command: RunCommand) -> None:
+        assert not self._run_command, "run_command already logged."
+        self._run_command = run_command
+        self.log_component(run_command.component)
+        self.log_parameter_set(run_command.parameter_set)
+        self.log_entry_point(run_command.entry_point)
 
     def log_component(self, root_component: "Component") -> None:
         """
@@ -211,10 +227,12 @@ class Run:
 
     def log_parameter_set(self, param_set: ParameterSet) -> None:
         self.log_dict(
-            self._mlflow_run_id,
             param_set.to_spec(),
             self.PARAM_SET_FILENAME
         )
+
+    def log_entry_point(self, entry_point: str) -> None:
+        self.set_tag(self.ENTRY_POINT_KEY, str)
 
     def log_return_value(
         self,
@@ -233,17 +251,17 @@ class Run:
         if format == "pickle":
             import pickle
             filename = filename_base + ".pickle"
-            with open(filename) as f:
+            with open(filename, 'wb') as f:
                 pickle.dump(ret_val, f)
         elif format == "json":
             import json
             filename = filename_base + ".json"
-            with open(filename) as f:
+            with open(filename, 'w') as f:
                 json.dump(ret_val, f)
         elif format == "yaml":
             import yaml
             filename = filename_base + ".yaml"
-            with open(filename) as f:
+            with open(filename, 'w') as f:
                 yaml.dump(ret_val, f)
         else:
             raise PythonComponentSystemException("Invalid format provided")
@@ -260,30 +278,34 @@ class Run:
         else:
             pprint.pprint(self.to_spec())
 
+    @classmethod
     def from_registry(
-        self,
+        cls,
         registry: Registry,
         run_id: RunIdentifier,
-        fail_on_mlflow_run_not_found: bool = False
-    ):
+    ) -> "Run":
         run_spec = registry.get_run_spec(run_id)
+        #TODO figure out a way to deserialize an MLflowRun from the registry
+        #     and reconcile that with what is in the tracking store.
+        raise NotImplementedError
+
+    @classmethod
+    def from_tracking_store(
+        cls,
+        run_id: RunIdentifier,
+    ):
         try:
-            run_cmd = Run.from_existing_run_id(
-                identifier=run_spec[]
-            )
+            run = cls.from_existing_run_id(run_id)
         except MlflowException as e:
-            if fail_on_mlflow_run_not_found:
-                raise e
-            run_cmd = RunCommand()
-            print(
-                f"Creating a new MLflowRun (with id {run.identifier}) "
+            raise MlflowException(
+                f"Creating a new MLflowRun (with id {run_id}) "
                 "to back this Run object since MLflow was unable to "
                 "retrieve the MLflowRun that was used in the Run that "
-                "we are loading from the registry (id: "
-                f"{run_spec[RunSpec.identifier_key]}). Use the "
+                f"we are loading from the registry (id: {run_id}). Use the "
                 "fail_on_mlflow_run_not_found arg to raise an exception "
-                "instead."
+                "instead." + e
             )
+        return run
 
     def to_registry(
         self,
@@ -296,8 +318,9 @@ class Run:
             from agentos.registry import InMemoryRegistry
             registry = InMemoryRegistry()
         registry.add_run_spec(self.to_spec())
-        # If we are writing to a WebRegistry and have local, then optionally
-        # (per function arg) try uploading the artifact files to the registry.
+        # If we are writing to a WebRegistry, have local artifacts, and
+        # include_artifacts is True, try uploading the artifact files to the
+        # registry.
         if (
             include_artifacts and
             hasattr(registry, "add_run_artifacts") and
@@ -315,9 +338,13 @@ class Run:
     @property
     def is_publishable(self) -> bool:
         # use like: filtered_tags["is_publishable"] = self.is_publishable
-        return self._mlflow_run.data.tags[self.IS_FROZEN_KEY] == "True"
+        try:
+            return self._mlflow_run.data.tags[self.IS_FROZEN_KEY] == "True"
+        except KeyError:
+            return False
 
     def to_spec(self) -> RunSpec:
+        # TODO:
         spec = self._mlflow_run.to_dict()
         run_cmd = self.run_command.to_spec() if self.run_command else None
         spec["run_command"] = run_cmd

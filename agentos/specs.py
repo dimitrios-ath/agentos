@@ -35,4 +35,5 @@ RunCommandSpec.entry_point_key = "entry_point"
 RunCommandSpec.parameter_set_key = "parameter_set"
 
 RunSpec = Mapping
+RunSpec.identifier_key = "identifier"
 
