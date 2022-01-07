@@ -83,7 +83,7 @@ class Registry(abc.ABC):
         raise NotImplementedError
 
     def get_component_spec(
-        self, name: str, version: str = None, flattened: bool = True
+        self, name: str, version: str = None, flatten: bool = True
     ) -> ComponentSpec:
         """
         Returns the component spec with ``name`` and ``version``, if it exists.
@@ -109,7 +109,7 @@ class Registry(abc.ABC):
 
         :param name: The name of the component to fetch.
         :param version: Optional version of the component to fetch.
-        :param flattened: If True, flatten the outermost 2 layers of nested
+        :param flatten: If True, flatten the outermost 2 layers of nested
                           dicts into a single dict. In an unflattened component
                           spec, the outermost dict is from identifier
                           (which is a string in the format of name[==version])
@@ -135,7 +135,7 @@ class Registry(abc.ABC):
                 f"the name {name}. Please specify one of the following "
                 f"versions:\n - {version_str}"
             )
-        if flattened:
+        if flatten:
             component_tuple = components.popitem()
             identifier_str = component_tuple[0]
             identifier = ComponentIdentifier.from_str(identifier_str)
@@ -157,6 +157,9 @@ class Registry(abc.ABC):
 
     @abc.abstractmethod
     def get_run_spec(self, run_id: str) -> RunSpec:
+        raise NotImplementedError
+
+    def get_run_command_spec(self, run_command_id: str) -> RunCommandSpec:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -239,8 +242,11 @@ class InMemoryRegistry(Registry):
     def get_repo_spec(self, repo_id: str) -> "RepoSpec":
         return self._registry["repos"][repo_id]
 
-    def get_run_spec(self, run_id: str) -> Dict:
+    def get_run_spec(self, run_id: str) -> RunSpec:
         return self._registry["runs"][run_id]
+
+    def get_run_command_spec(self, run_command_id: str) -> RunCommandSpec:
+        return self._registry["run_commands"][run_command_id]
 
     def get_registries(self) -> Sequence[Registry]:
         return self._registry["registries"]

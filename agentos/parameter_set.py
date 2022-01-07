@@ -1,5 +1,6 @@
 import copy
 import yaml
+from immutables import Map
 from typing import TypeVar, Dict
 from agentos.specs import ParameterSetSpec
 
@@ -14,7 +15,16 @@ class ParameterSet:
     """
 
     def __init__(self, parameters: ParameterSetSpec = None):
-        self._parameters = parameters if parameters else {}
+        self._parameters = Map(parameters) if parameters else Map
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return True
+        else:
+            return self is other
+
+    def __hash__(self):
+        return hash(self._parameters)
 
     @classmethod
     def from_yaml(cls, file_path) -> "ParameterSet":
@@ -29,12 +39,26 @@ class ParameterSet:
         fn_params = component_params.get(fn_name, {})
         fn_params.update(params)
         component_params[fn_name] = fn_params
-        self._parameters[component_name] = component_params
+        self._parameters = self._parameters.set(
+            component_name, component_params
+        )
 
-    def get(self, component_name: str, fn_name: str):
-        component_params = self._parameters.get(component_name, {})
-        fn_params = component_params.get(fn_name, {})
+    def get_component_params(self, component_name: str) -> Dict:
+        return self._parameters.get(component_name, {})
+
+    def get_function_params(
+        self, component_name: str, function_name: str
+    ) -> Dict:
+        component_params = self.get_component_params(component_name)
+        fn_params = component_params.get(function_name, {})
         return fn_params if fn_params else {}
+
+    def get_param(
+        self, component_name: str, function_name: str, param_key: str
+    ) -> Dict:
+        fn_params = self.get_function_params(component_name, function_name)
+        param = fn_params.get(param_key, {})
+        return param if param else {}
 
     def to_spec(self) -> ParameterSetSpec:
         return copy.deepcopy(self._parameters)

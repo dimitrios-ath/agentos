@@ -1,5 +1,6 @@
 def test_component_run():
     from agentos import ParameterSet, Component
+    from agentos.registry import InMemoryRegistry
 
     class Simple:
         def __init__(self, x):
@@ -15,6 +16,18 @@ def test_component_run():
     r = c.run("fn", params)
     assert r.run_command.component == c
     assert r.run_command.entry_point == "fn"
+    new_run = r.run_command.run()
+    assert new_run.run_command.component == c
+
+    registry = InMemoryRegistry()
+    r.run_command.to_registry(registry)
+    import yaml
+    print(yaml.dump(registry.to_dict()))
+    assert registry.get_run_command_spec(r.run_command.identifier) == r.run_command
+
+    # TODO: allow runs to be added to a registry. For now they should
+    #  simply be a pointer to a tracking server and a run_id.
+    #assert registry.get_run_spec(r.identifier) == r
 
 
 def test_run_tracking():

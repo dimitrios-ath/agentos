@@ -158,11 +158,18 @@ class RunCommand:
         """
         return self.component.run(self.entry_point, self.parameter_set)
 
-    def to_spec(self) -> RunCommandSpec:
-        return {
-            RunCommandSpec.identifier_key: self.identifier,
+    def to_spec(self, flatten: bool = False) -> RunCommandSpec:
+        inner = {
             RunCommandSpec.component_id_key: self._component.identifier,
             RunCommandSpec.entry_point_key: self._entry_point,
             RunCommandSpec.parameter_set_key: self._parameter_set.to_spec(),
         }
+        if flatten:
+            return inner.update(
+                {RunCommandSpec.identifier_key: self.identifier}
+            )
+        else:
+            return {
+                self.identifier: inner
+            }
 

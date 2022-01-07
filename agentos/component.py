@@ -232,7 +232,7 @@ class Component:
     ) -> Any:
         fn = getattr(instance, function_name)
         assert fn is not None, f"{instance} has no attr {function_name}"
-        fn_params = param_set.get(self.name, function_name)
+        fn_params = param_set.get_function_params(self.name, function_name)
         print(f"Calling {self.name}.{function_name}(**{fn_params})")
         return fn(**fn_params)
 
