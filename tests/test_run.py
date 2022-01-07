@@ -13,17 +13,21 @@ def test_component_run():
         {"Simple": {"__init__": {"x": 1}, "fn": {"input": "hi"}}}
     )
     c = Component.from_class(Simple)
-    r = c.run("fn", params)
-    assert r.run_command.component == c
-    assert r.run_command.entry_point == "fn"
-    new_run = r.run_command.run()
+    run = c.run("fn", params)
+    assert run.run_command.component == c
+    assert run.run_command.entry_point == "fn"
+    new_run = run.run_command.run()
     assert new_run.run_command.component == c
 
     registry = InMemoryRegistry()
-    r.run_command.to_registry(registry)
+    run.run_command.to_registry(registry)
     import yaml
     print(yaml.dump(registry.to_dict()))
-    assert registry.get_run_command_spec(r.run_command.identifier) == r.run_command
+    print("===")
+    print(yaml.dump(registry.get_run_command_spec(run.run_command.identifier)))
+    print("===")
+    print(yaml.dump(run.run_command.to_spec()))
+    assert registry.get_run_command_spec(run.run_command.identifier) == run.run_command.to_spec()
 
     # TODO: allow runs to be added to a registry. For now they should
     #  simply be a pointer to a tracking server and a run_id.

@@ -159,7 +159,7 @@ class AgentRunManager:
             {
                 "steps": steps,
                 "reward": reward,
-                "active_run": Run.active_run().identifier,
+                "active_run": Run.active_run(self).identifier,
             }
         )
 

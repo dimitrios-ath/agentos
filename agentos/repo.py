@@ -10,7 +10,9 @@ from dulwich.objectspec import parse_ref
 from dulwich.objectspec import parse_commit
 from dulwich.errors import NotGitRepository
 
-from agentos.exceptions import BadGitStateException, NoLocalPathException
+from agentos.exceptions import (
+    BadGitStateException, NoLocalPathException, PythonComponentSystemException
+)
 from agentos.utils import AOS_CACHE_DIR
 from agentos import component
 from agentos.specs import RepoSpec
@@ -33,19 +35,26 @@ class Repo(abc.ABC):
     """
 
     @staticmethod
-    def from_spec(name: str, spec: RepoSpec, base_dir: Path = None) -> "Repo":
-        if spec["type"] == RepoType.LOCAL.value:
-            assert base_dir, "The `base_dir` arg is required for local repos."
-            path = Path(base_dir) / spec["path"]
-            return LocalRepo(name=name, file_path=path)
-        elif spec["type"] == RepoType.GITHUB.value:
-            return GitHubRepo(name=name, url=spec["url"])
-        elif spec["type"] == RepoType.IN_MEMORY.value:
-            return InMemoryRepo()
-        elif spec["type"] == RepoType.UNKNOWN.value:
-            return UnknownRepo()
-        else:
-            raise Exception(f"Unknown repo spec type: {spec}")
+    def from_spec(spec: RepoSpec, base_dir: Path = None) -> "Repo":
+        assert len(spec) == 1
+        for name, inner_spec in spec.items():
+            repo_type = inner_spec["type"]
+            if repo_type == RepoType.LOCAL.value:
+                assert base_dir, (
+                    "The `base_dir` arg is required for local repos."
+                )
+                path = Path(base_dir) / inner_spec["path"]
+                return LocalRepo(name=name, file_path=path)
+            elif repo_type == RepoType.GITHUB.value:
+                return GitHubRepo(name=name, url=inner_spec["url"])
+            elif repo_type == RepoType.IN_MEMORY.value:
+                return InMemoryRepo()
+            elif repo_type == RepoType.UNKNOWN.value:
+                return UnknownRepo()
+            else:
+                raise PythonComponentSystemException(
+                    f"Unknown repo spec type '{repo_type} in repo {name}"
+                )
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Repo):

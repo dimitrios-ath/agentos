@@ -47,6 +47,6 @@ def test_component_freezing(tmpdir):
                 "get_prefixed_path_from_repo_root"
             ].return_value = "freeze/test.py"
             reg = c.to_frozen_registry()
-            agent_spec = reg.get_component_spec("agent")
+            agent_spec = reg.get_component_spec("agent", flatten=True)
             assert agent_spec["repo"] == "local_dir"
             assert agent_spec["version"] == "test_freezing_version"

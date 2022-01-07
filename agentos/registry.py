@@ -83,7 +83,7 @@ class Registry(abc.ABC):
         raise NotImplementedError
 
     def get_component_spec(
-        self, name: str, version: str = None, flatten: bool = True
+        self, name: str, version: str = None, flatten: bool = False
     ) -> ComponentSpec:
         """
         Returns the component spec with ``name`` and ``version``, if it exists.
@@ -146,20 +146,24 @@ class Registry(abc.ABC):
         return components
 
     def get_component_spec_by_id(
-        self, identifier: Union[ComponentIdentifier, str]
+        self,
+        identifier: Union[ComponentIdentifier, str],
+        flatten: bool = False
     ) -> ComponentSpec:
         identifier = ComponentIdentifier.from_str(str(identifier))
-        return self.get_component_spec(identifier.name, identifier.version)
+        return self.get_component_spec(
+            identifier.name, identifier.version, flatten=flatten
+        )
 
     @abc.abstractmethod
-    def get_repo_spec(self, repo_id: str) -> RepoSpec:
+    def get_repo_spec(self, repo_id: str, flatten: bool = False) -> RepoSpec:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_run_spec(self, run_id: str) -> RunSpec:
+    def get_run_spec(self, run_id: str, flatten: bool = False) -> RunSpec:
         raise NotImplementedError
 
-    def get_run_command_spec(self, run_command_id: str) -> RunCommandSpec:
+    def get_run_command_spec(self, run_command_id: str, flatten: bool = False) -> RunCommandSpec:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -239,14 +243,31 @@ class InMemoryRegistry(Registry):
                 return {}
         return self._registry["components"]
 
-    def get_repo_spec(self, repo_id: str) -> "RepoSpec":
-        return self._registry["repos"][repo_id]
+    def get_repo_spec(self, repo_id: str, flatten: bool = False) -> "RepoSpec":
+        inner = self._registry["repos"][repo_id]
+        if flatten:
+            inner.update({"identifier": repo_id})
+            return inner
+        else:
+            return {repo_id: inner}
 
-    def get_run_spec(self, run_id: str) -> RunSpec:
-        return self._registry["runs"][run_id]
+    def get_run_spec(self, run_id: str, flatten: bool = False) -> RunSpec:
+        inner = {run_id: self._registry["runs"][run_id]}
+        if flatten:
+            inner.update({"identifier": inner})
+            return inner
+        else:
+            return {run_id: inner}
 
-    def get_run_command_spec(self, run_command_id: str) -> RunCommandSpec:
-        return self._registry["run_commands"][run_command_id]
+    def get_run_command_spec(
+        self, run_command_id: str, flatten: bool = False
+    ) -> RunCommandSpec:
+        inner = self._registry["run_commands"][run_command_id]
+        if flatten:
+            inner.update({"identifier": run_command_id})
+            return inner
+        else:
+            return {run_command_id: inner}
 
     def get_registries(self) -> Sequence[Registry]:
         return self._registry["registries"]
@@ -294,7 +315,15 @@ class WebRegistry(Registry):
     def get_default_component(self, name: str):
         raise NotImplementedError
 
-    def get_repo_spec(self, repo_id: str) -> "RepoSpec":
+    def get_repo_spec(self, repo_id: str, flatten: bool = False) -> "RepoSpec":
+        raise NotImplementedError
+
+    def get_run_command_spec(
+        self, run_command_id: str, flatten: bool = False
+    ) -> RunCommandSpec:
+        raise NotImplementedError
+
+    def get_run_spec(self, run_id: str, flatten: bool = False) -> RunSpec:
         raise NotImplementedError
 
     def get_registries(self) -> Sequence:

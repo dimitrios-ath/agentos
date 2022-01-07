@@ -64,11 +64,11 @@ class RunCommand:
             return self is other
 
     def __str__(self):
-        return hash(self)
+        return str(hash(self))
 
     @property
-    def identifier(self):
-        return hash(self)
+    def identifier(self) -> str:
+        return str(hash(self))
 
     @property
     def component(self):
@@ -160,7 +160,7 @@ class RunCommand:
 
     def to_spec(self, flatten: bool = False) -> RunCommandSpec:
         inner = {
-            RunCommandSpec.component_id_key: self._component.identifier,
+            RunCommandSpec.component_id_key: self._component.identifier.full,
             RunCommandSpec.entry_point_key: self._entry_point,
             RunCommandSpec.parameter_set_key: self._parameter_set.to_spec(),
         }

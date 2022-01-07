@@ -82,7 +82,10 @@ class Component:
         dependencies = {}
         while component_identifiers:
             component_id = component_identifiers.pop()
-            component_spec = registry.get_component_spec_by_id(component_id)
+            component_spec = registry.get_component_spec_by_id(
+                component_id,
+                flatten=True
+            )
             component_id_from_spec = ComponentIdentifier(
                 component_spec["name"], component_spec["version"]
             )
@@ -90,7 +93,7 @@ class Component:
             if repo_id not in repos.keys():
                 repo_spec = registry.get_repo_spec(repo_id)
                 repos[repo_id] = Repo.from_spec(
-                    repo_id, repo_spec, registry.base_dir
+                    repo_spec, registry.base_dir
                 )
             component = cls.from_repo(
                 repo=repos[repo_id],

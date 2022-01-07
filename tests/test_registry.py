@@ -95,7 +95,9 @@ def test_registry_from_dict():
         in r.get_component_specs(filter_by_name="acme_cartpole").keys()
     )
 
-    agent_component_flat_spec = r.get_component_spec("acme_r2d2_agent")
+    agent_component_flat_spec = r.get_component_spec(
+        "acme_r2d2_agent", flatten=True
+    )
     assert agent_component_flat_spec["name"] == "acme_r2d2_agent"
     assert (
         agent_component_flat_spec["version"]
@@ -134,7 +136,9 @@ def test_registry_from_dict():
     with pytest.raises(RegistryException):
         r.add_component(chatbot_agent)
     r.add_component(chatbot_agent, force=True)
-    updated = r.get_component_spec(chatbot_agent.name, chatbot_agent.version)
+    updated = r.get_component_spec(
+        chatbot_agent.name, chatbot_agent.version, flatten=True
+    )
     assert updated["class_name"] == "NewClassName"
 
     reg_from_component = chatbot_agent.to_registry()

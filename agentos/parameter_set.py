@@ -1,7 +1,8 @@
 import copy
 import yaml
-from immutables import Map
-from typing import TypeVar, Dict
+import json
+from hashlib import sha1
+from typing import TypeVar, Mapping, Dict
 from agentos.specs import ParameterSetSpec
 
 # Use Python generics (https://mypy.readthedocs.io/en/stable/generics.html)
@@ -15,16 +16,36 @@ class ParameterSet:
     """
 
     def __init__(self, parameters: ParameterSetSpec = None):
-        self._parameters = Map(parameters) if parameters else Map
+        if parameters:
+            for component_name, fn_map in parameters.items():
+                assert isinstance(component_name, str)
+                assert isinstance(fn_map, Mapping)
+                for fn_name, param_map in fn_map.items():
+                    assert isinstance(fn_name, str)
+                    assert isinstance(param_map, Mapping)
+                    for param_name, param_val in param_map.items():
+                        assert isinstance(param_name, str)
+        self._parameters = parameters if parameters else {}
+        # Ensure serializability.
+        assert self.to_sorted_dict_str(), (
+            "parameters dict must be serializable"
+        )
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if isinstance(other, self.__class__):
-            return True
+            return hash(self) == hash(self)
         else:
-            return self is other
+            return NotImplemented
 
-    def __hash__(self):
-        return hash(self._parameters)
+    def __hash__(self) -> int:
+        return int(self._sha1(), 16)
+
+    def __str__(self) -> str:
+        return self.identifier
+
+    @property
+    def identifier(self) -> str:
+        return self._sha1()
 
     @classmethod
     def from_yaml(cls, file_path) -> "ParameterSet":
@@ -39,9 +60,7 @@ class ParameterSet:
         fn_params = component_params.get(fn_name, {})
         fn_params.update(params)
         component_params[fn_name] = fn_params
-        self._parameters = self._parameters.set(
-            component_name, component_params
-        )
+        self._parameters[component_name] = component_params
 
     def get_component_params(self, component_name: str) -> Dict:
         return self._parameters.get(component_name, {})
@@ -62,3 +81,12 @@ class ParameterSet:
 
     def to_spec(self) -> ParameterSetSpec:
         return copy.deepcopy(self._parameters)
+
+    def _sha1(self) -> str:
+        # Not positive if this is stable across architectures.
+        # See https://stackoverflow.com/q/27522626
+        return sha1(self.to_sorted_dict_str().encode('utf-8')).hexdigest()
+
+    def to_sorted_dict_str(self) -> str:
+        # See https://stackoverflow.com/a/22003440
+        return json.dumps(self._parameters, sort_keys=True)
