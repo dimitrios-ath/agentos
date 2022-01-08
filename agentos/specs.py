@@ -1,20 +1,37 @@
 """
-Specs are objects that can be added to a Registry,
-which is useful for sharing and reproducibility.
+The Specs Types in this file specify which types of objects that can be added
+to a Registry. They are literally types, and used in type annotions on core
+abstractions.
 
-Specs are serializable to YAML format and are human readable and manageable.
+Though this isn't currently enforced by the types, objects that are Specs
+should be serializable to YAML format and are human readable and manageable.
+
+Currently dicts are most often used where a Spec is required by type
+signatures.
+
+Specs are always mappings. By default, specs map from an identifier string to
+a mapping of key-value properties of the spec; and in some specs such as
+ParameterSetSpec, those values can themselves be mappings.
+
+For developer convenience many functions support flattened specs, which have
+the spec identifier at the same level as the rest of the spec properties.
 """
 from typing import Mapping, Union, Any
 
-FlatComponentSpec = Mapping[str, str]
+FlatSpec = Mapping[str, str]
+
 NestedComponentSpec = Mapping[str, Mapping[str, str]]
-ComponentSpec = Union[NestedComponentSpec, FlatComponentSpec]
+ComponentSpec = Union[NestedComponentSpec, FlatSpec]
 ComponentSpec.identifier_key = "identifier"
 
-# Repo is serialized to a YAML dictionary with the following form:
-# {"repo_name": { repo_property_key: repo_property_val}
-RepoSpec = Mapping[str, Mapping[str, str]]
+# Repo is serialized to a YAML dictionary with the following (unflatted) form:
+# {repo_identifier: {repo_property_key: repo_property_val}}
+NestedRepoSpec = Mapping[str, Mapping[str, str]]
+RepoSpec = Union[NestedRepoSpec, FlatSpec]
 RepoSpec.identifier_key = "identifier"
+RepoSpec.type_key = "type"
+RepoSpec.url_key = "url"
+RepoSpec.path_key = "path"
 
 # A paramSet is serialized as a ParameterSetSpec, which is a YAML dictionary
 # with the following structure:
@@ -28,6 +45,7 @@ RepoSpec.identifier_key = "identifier"
 # mechanism which allows a component to depend on other components,
 # which themselves can be instances of an arbitrary Python class.
 # TODO: Figure out a better type than Any for the leaf type here.
+#       Specifically, one that captures the required serializability.
 ParameterSetSpec = Mapping[str, Mapping[str, Mapping[str, Any]]]
 ParameterSetSpec.identifier_key = "identifier"
 

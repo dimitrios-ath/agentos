@@ -37,23 +37,23 @@ class Repo(abc.ABC):
     @staticmethod
     def from_spec(spec: RepoSpec, base_dir: Path = None) -> "Repo":
         assert len(spec) == 1
-        for name, inner_spec in spec.items():
+        for identifier, inner_spec in spec.items():
             repo_type = inner_spec["type"]
             if repo_type == RepoType.LOCAL.value:
                 assert base_dir, (
                     "The `base_dir` arg is required for local repos."
                 )
                 path = Path(base_dir) / inner_spec["path"]
-                return LocalRepo(name=name, file_path=path)
+                return LocalRepo(identifier=identifier, file_path=path)
             elif repo_type == RepoType.GITHUB.value:
-                return GitHubRepo(name=name, url=inner_spec["url"])
+                return GitHubRepo(identifier=identifier, url=inner_spec["url"])
             elif repo_type == RepoType.IN_MEMORY.value:
                 return InMemoryRepo()
             elif repo_type == RepoType.UNKNOWN.value:
                 return UnknownRepo()
             else:
                 raise PythonComponentSystemException(
-                    f"Unknown repo spec type '{repo_type} in repo {name}"
+                    f"Unknown repo spec type '{repo_type} in repo {identifier}"
                 )
 
     def __eq__(self, other: object) -> bool:
@@ -65,12 +65,25 @@ class Repo(abc.ABC):
     def to_spec(self, flatten: bool = False) -> RepoSpec:
         return NotImplementedError
 
+    def optionally_flatten_spec(self, inner: dict, flatten: bool):
+        """
+        Helper function for optionally flattening a spec.
+        :param inner: the inner dict to flatten or not.
+        :param flatten: the flag for whether to flatten this spec.
+        :return: a spec that is either flattened or not.
+        """
+        if flatten:
+            inner.update({RepoSpec.identifier_key: self.identifier})
+            return inner
+        else:
+            return {self.identifier: inner}
+
     def get_local_repo_path(self, version: str) -> Path:
         raise NotImplementedError()
 
     def get_version_from_git(
         self,
-        identifier: "component.Component.Identifier",
+        component_identifier: "component.Component.Identifier",
         file_path: str,
         force: bool = False,
     ) -> (str, str):
@@ -88,7 +101,7 @@ class Repo(abc.ABC):
 
         If ''force'' is True, checks 2, 3, and 4 above are ignored.
         """
-        full_path = self.get_local_file_path(identifier, file_path)
+        full_path = self.get_local_file_path(component_identifier, file_path)
         assert full_path.exists(), f"Path {full_path} does not exist"
         try:
             self.porcelain_repo = PorcelainRepo.discover(full_path)
@@ -233,18 +246,12 @@ class UnknownRepo(Repo):
     public source.
     """
 
-    def __init__(self, identifier=None):
+    def __init__(self, identifier: str = None):
         self.identifier = identifier if identifier else "unknown_repo"
         self.type = RepoType.UNKNOWN
 
     def to_spec(self, flatten: bool = False) -> RepoSpec:
-        if flatten:
-            return {
-                RepoSpec.identifier_key: self.identifier,
-                "type": self.type
-            }
-        else:
-            return {self.identifier: {"type": self.type}}
+        return self.optionally_flatten_spec({"type": self.type}, flatten)
 
 
 class GitHubRepo(Repo):
@@ -263,14 +270,10 @@ class GitHubRepo(Repo):
 
     def to_spec(self, flatten: bool = False) -> Dict:
         inner = {
-            "type": self.type.value,
-            "url": self.url
+            RepoSpec.type_key: self.type.value,
+            RepoSpec.url_key: self.url
         }
-        if flatten:
-            inner.update({RepoSpec.identifier_key: self.identifier})
-            return inner
-        else:
-            return {self.identifier: inner}
+        return self.optionally_flatten_spec(inner, flatten)
 
     def get_local_repo_path(self, version: str) -> str:
         local_repo_path = self._clone_repo(version)
@@ -320,15 +323,17 @@ class LocalRepo(Repo):
     A Component with a LocalRepo can be found on your local drive.
     """
 
-    def __init__(self, name: str, file_path: str):
-        self.name = name
+    def __init__(self, identifier: str, file_path: str):
+        self.identifier = identifier
         self.type = RepoType.LOCAL
         self.file_path = Path(file_path).absolute()
 
-    def to_spec(self) -> Dict:
-        return {
-            self.name: {"type": self.type.value, "path": str(self.file_path)}
+    def to_spec(self, flatten: bool = False) -> RepoSpec:
+        inner = {
+            RepoSpec.type_key: self.type.value,
+            RepoSpec.path_key: str(self.file_path),
         }
+        return self.optionally_flatten_spec(inner, flatten)
 
     def get_local_repo_path(self, version: str) -> Path:
         return self.file_path
@@ -345,12 +350,13 @@ class InMemoryRepo(Repo):
     already loaded into Python.
     """
 
-    def __init__(self, name: str = None):
-        self.name = name if name else "in_memory"
+    def __init__(self, identifier: str = None):
+        self.identifier = identifier if identifier else "in_memory"
         self.type = RepoType.IN_MEMORY
 
     def get_local_file_path(self, *args, **kwargs):
         raise NoLocalPathException()
 
-    def to_spec(self) -> Dict:
-        return {self.name: {"type": self.type.value}}
+    def to_spec(self, flatten: bool = False) -> RepoSpec:
+        inner = {RepoSpec.type_key: self.type.value}
+        return self.optionally_flatten_spec(inner, flatten)

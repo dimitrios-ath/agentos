@@ -291,7 +291,7 @@ class Component:
         )
         clone = Component(
             managed_cls=self._managed_cls,
-            repo=GitHubRepo(name=self.repo.name, url=repo_url),
+            repo=GitHubRepo(identifier=self.repo.identifier, url=repo_url),
             identifier=new_identifier,
             class_name=self.class_name,
             file_path=prefixed_file_path,
@@ -309,7 +309,7 @@ class Component:
             k: str(v.identifier) for k, v in self.dependencies.items()
         }
         component_spec_content = {
-            "repo": self.repo.name,
+            "repo": self.repo.identifier,
             "file_path": str(self.file_path),
             "class_name": self.class_name,
             "dependencies": dependencies,
@@ -364,10 +364,10 @@ class Component:
                     )
             registry.add_component_spec(c.to_spec())
             try:
-                repo_spec = registry.get_repo_spec(c.repo.name)
-                if repo_spec != c.repo.to_spec()[c.repo.name]:
+                repo_spec = registry.get_repo_spec(c.repo.identifier)
+                if repo_spec != c.repo.to_spec():
                     raise RegistryException(
-                        f"A Repo with identifier {c.repo.name} already exists "
+                        f"A Repo with identifier {c.repo.identifier} already exists"
                         f"in this registry that differs from the one referred "
                         f"to by component {c.identifier}: {repo_spec} vs "
                         f"{c.repo.to_spec()[c.repo.name]}"
