@@ -304,7 +304,7 @@ class Component:
             clone.add_dependency(frozen_dependency, attribute_name=attr_name)
         return clone
 
-    def to_spec(self) -> ComponentSpec:
+    def to_spec(self, flatten: bool = False) -> ComponentSpec:
         dependencies = {
             k: str(v.identifier) for k, v in self.dependencies.items()
         }
@@ -314,7 +314,13 @@ class Component:
             "class_name": self.class_name,
             "dependencies": dependencies,
         }
-        return {str(self.identifier): component_spec_content}
+        if flatten:
+            component_spec_content.update(
+                {ComponentSpec.identifier_key: str(self.identifier)}
+            )
+            return component_spec_content
+        else:
+            return {str(self.identifier): component_spec_content}
 
     def to_registry(
         self,

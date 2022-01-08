@@ -343,9 +343,14 @@ class Run:
         except KeyError:
             return False
 
-    def to_spec(self) -> RunSpec:
+    def to_spec(self, flatten: bool = False) -> RunSpec:
         # TODO:
-        spec = self._mlflow_run.to_dict()
+        inner_spec = self._mlflow_run.to_dict()
         run_cmd = self.run_command.to_spec() if self.run_command else None
-        spec["run_command"] = run_cmd
-        return spec
+        inner_spec["run_command"] = run_cmd
+        if flatten:
+            inner_spec.update({RunSpec.identifier_key: self.identifier})
+            return
+        else:
+            {self.identifier: inner_spec}
+

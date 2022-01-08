@@ -9,10 +9,12 @@ from typing import Mapping, Union, Any
 FlatComponentSpec = Mapping[str, str]
 NestedComponentSpec = Mapping[str, Mapping[str, str]]
 ComponentSpec = Union[NestedComponentSpec, FlatComponentSpec]
+ComponentSpec.identifier_key = "identifier"
 
 # Repo is serialized to a YAML dictionary with the following form:
 # {"repo_name": { repo_property_key: repo_property_val}
 RepoSpec = Mapping[str, Mapping[str, str]]
+RepoSpec.identifier_key = "identifier"
 
 # A paramSet is serialized as a ParameterSetSpec, which is a YAML dictionary
 # with the following structure:
@@ -27,6 +29,7 @@ RepoSpec = Mapping[str, Mapping[str, str]]
 # which themselves can be instances of an arbitrary Python class.
 # TODO: Figure out a better type than Any for the leaf type here.
 ParameterSetSpec = Mapping[str, Mapping[str, Mapping[str, Any]]]
+ParameterSetSpec.identifier_key = "identifier"
 
 RunCommandSpec = Mapping
 RunCommandSpec.identifier_key = "identifier"

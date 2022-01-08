@@ -62,7 +62,7 @@ class Repo(abc.ABC):
         return self == other
 
     @abc.abstractmethod
-    def to_spec(self) -> Dict:
+    def to_spec(self, flatten: bool = False) -> RepoSpec:
         return NotImplementedError
 
     def get_local_repo_path(self, version: str) -> Path:
@@ -233,12 +233,18 @@ class UnknownRepo(Repo):
     public source.
     """
 
-    def __init__(self, name=None):
-        self.name = name if name else "unknown_repo"
+    def __init__(self, identifier=None):
+        self.identifier = identifier if identifier else "unknown_repo"
         self.type = RepoType.UNKNOWN
 
-    def to_spec(self) -> Dict:
-        return {self.name: {"type": self.type}}
+    def to_spec(self, flatten: bool = False) -> RepoSpec:
+        if flatten:
+            return {
+                RepoSpec.identifier_key: self.identifier,
+                "type": self.type
+            }
+        else:
+            return {self.identifier: {"type": self.type}}
 
 
 class GitHubRepo(Repo):
@@ -246,8 +252,8 @@ class GitHubRepo(Repo):
     A Component with an GitHubRepo can be found on GitHub.
     """
 
-    def __init__(self, name: str, url: str):
-        self.name = name
+    def __init__(self, identifier: str, url: str):
+        self.identifier = identifier
         self.type = RepoType.GITHUB
         # https repo link allows for cloning without unlocking your GitHub keys
         url = url.replace("git@github.com:", "https://github.com/")
@@ -255,8 +261,16 @@ class GitHubRepo(Repo):
         self.local_repo_path = None
         self.porcelain_repo = None
 
-    def to_spec(self) -> Dict:
-        return {self.name: {"type": self.type.value, "url": self.url}}
+    def to_spec(self, flatten: bool = False) -> Dict:
+        inner = {
+            "type": self.type.value,
+            "url": self.url
+        }
+        if flatten:
+            inner.update({RepoSpec.identifier_key: self.identifier})
+            return inner
+        else:
+            return {self.identifier: inner}
 
     def get_local_repo_path(self, version: str) -> str:
         local_repo_path = self._clone_repo(version)

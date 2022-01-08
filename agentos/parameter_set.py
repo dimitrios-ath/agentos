@@ -79,8 +79,13 @@ class ParameterSet:
         param = fn_params.get(param_key, {})
         return param if param else {}
 
-    def to_spec(self) -> ParameterSetSpec:
-        return copy.deepcopy(self._parameters)
+    def to_spec(self, flatten: bool = False) -> ParameterSetSpec:
+        inner = copy.deepcopy(self._parameters)
+        if flatten:
+            inner.update({ParameterSetSpec.identifier_key: self.identifier})
+            return inner
+        else:
+            return {str(self.identifier): flatten}
 
     def _sha1(self) -> str:
         # Not positive if this is stable across architectures.

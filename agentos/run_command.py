@@ -165,11 +165,8 @@ class RunCommand:
             RunCommandSpec.parameter_set_key: self._parameter_set.to_spec(),
         }
         if flatten:
-            return inner.update(
-                {RunCommandSpec.identifier_key: self.identifier}
-            )
+            inner.update({RunCommandSpec.identifier_key: self.identifier})
+            return inner
         else:
-            return {
-                self.identifier: inner
-            }
+            return {self.identifier: inner}
 
