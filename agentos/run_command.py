@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 from agentos.registry import Registry
 from agentos.specs import RunCommandSpec, RunCommandSpecKeys
 from agentos.identifiers import RunIdentifier, RunCommandIdentifier
+
 # Avoids circular imports
 if TYPE_CHECKING:
     from agentos import Component
@@ -51,9 +52,9 @@ class RunCommand:
 
     def __hash__(self) -> int:
         return hash(
-            self.component.identifier.full +
-            self.entry_point +
-            str(self.parameter_set)
+            self.component.identifier.full
+            + self.entry_point
+            + str(self.parameter_set)
         )
 
     def __eq__(self, other):
@@ -83,6 +84,7 @@ class RunCommand:
 
     def new_run(self, experiment_id: str = None):
         from agentos.run import Run
+
         return Run.from_run_command(self, experiment_id=experiment_id)
 
     @classmethod
@@ -107,7 +109,7 @@ class RunCommand:
         new_run_cmd = cls(
             component=component,
             entry_point=run_cmd_spec[RunCommandSpecKeys.ENTRY_POINT],
-            parameter_set=run_cmd_spec[RunCommandSpecKeys.PARAMETER_SET]
+            parameter_set=run_cmd_spec[RunCommandSpecKeys.PARAMETER_SET],
         )
         assert new_run_cmd == run_cmd_spec[RunCommandSpecKeys.IDENTIFIER]
         return new_run_cmd
@@ -142,6 +144,7 @@ class RunCommand:
         """
         if not registry:
             from agentos.registry import InMemoryRegistry
+
             registry = InMemoryRegistry()
         registry.add_run_command_spec(self.to_spec())
         if recurse:
@@ -168,4 +171,3 @@ class RunCommand:
             return inner
         else:
             return {self.identifier: inner}
-

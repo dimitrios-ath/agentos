@@ -85,7 +85,7 @@ class RunViewSet(viewsets.ModelViewSet):
     def upload_artifact(self, request: Request, pk=None) -> Response:
         run = self.get_object()
         run.artifact_tarball.save(
-            f"run_{run.identifier}_artifacts.tar.gz", request.data["tarball"]
+            f"run_{run.id}_artifacts.tar.gz", request.data["tarball"]
         )
         run.save()
         return Response(RunSerializer(run).data)
@@ -94,7 +94,7 @@ class RunViewSet(viewsets.ModelViewSet):
     def download_artifact(self, request: Request, pk=None) -> Response:
         run = self.get_object()
         if not run.artifact_tarball:
-            raise ValidationError(f"No files associated with Run {run.identifier}")
+            raise ValidationError(f"No files associated with Run {run.id}")
         response = HttpResponse(
             run.artifact_tarball.open(), content_type="application/gzip"
         )

@@ -18,7 +18,7 @@ from agentos.run import Run
 from agentos.run_command import RunCommand
 from agentos.specs import ComponentSpec, RepoSpec, ParameterSetSpec, RunSpec
 
-agentos_objs = [
+__all__ = [
     "Agent",
     "Dataset",
     "Environment",
@@ -26,8 +26,6 @@ agentos_objs = [
     "Policy",
     "Runnable",
     "Trainer",
-]
-pcs_objs = [
     "Registry",
     "Component",
     "Repo",
@@ -37,6 +35,5 @@ pcs_objs = [
     "ComponentSpec",
     "RepoSpec",
     "ParameterSetSpec",
-    "RunSpec"
+    "RunSpec",
 ]
-__all__ = agentos_objs + pcs_objs

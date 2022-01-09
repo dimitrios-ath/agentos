@@ -183,7 +183,7 @@ class RunContextManager:
         self._check_component_exists_in_run(self.environment_name)
 
     def _check_component_exists_in_run(self, role_type: str) -> None:
-        run = Run.active_run()
+        run = Run.active_run(self)
         artifacts_dir = run.get_artifacts_dir_path()
         spec_path = artifacts_dir / Run.REGISTRY_ARTIFACT_KEY
         names = [

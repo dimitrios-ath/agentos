@@ -33,10 +33,10 @@ class ComponentSerializer(serializers.ModelSerializer):
         ]
 
     def get_id_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.identifier)
+        return _get_link_from_id(self, "component-detail", obj.id)
 
     def get_repo_link(self, obj):
-        return _get_link_from_id(self, "repo-detail", obj.repo.identifier)
+        return _get_link_from_id(self, "repo-detail", obj.repo.id)
 
     def get_github_source_link(self, obj):
         github_url = obj.repo.github_url
@@ -76,22 +76,22 @@ class RunSerializer(serializers.ModelSerializer):
         ]
 
     def get_id_link(self, obj):
-        return _get_link_from_id(self, "run-detail", obj.identifier)
+        return _get_link_from_id(self, "run-detail", obj.id)
 
     def get_root_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.root.identifier)
+        return _get_link_from_id(self, "component-detail", obj.root.id)
 
     def get_agent_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.agent.identifier)
+        return _get_link_from_id(self, "component-detail", obj.agent.id)
 
     def get_environment_link(self, obj):
-        return _get_link_from_id(self, "component-detail", obj.environment.identifier)
+        return _get_link_from_id(self, "component-detail", obj.environment.id)
 
     def get_download_artifact_tarball_link(self, obj):
-        return _get_link_from_id(self, "run-download-artifact", obj.identifier)
+        return _get_link_from_id(self, "run-download-artifact", obj.id)
 
     def get_root_spec_link(self, obj):
-        return _get_link_from_id(self, "run-root-spec", obj.identifier)
+        return _get_link_from_id(self, "run-root-spec", obj.id)
 
 
 class RepoSerializer(serializers.ModelSerializer):
@@ -107,4 +107,4 @@ class RepoSerializer(serializers.ModelSerializer):
         ]
 
     def get_id_link(self, obj):
-        return _get_link_from_id(self, "repo-detail", obj.identifier)
+        return _get_link_from_id(self, "repo-detail", obj.id)

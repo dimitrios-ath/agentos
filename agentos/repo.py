@@ -11,7 +11,9 @@ from dulwich.objectspec import parse_commit
 from dulwich.errors import NotGitRepository
 
 from agentos.exceptions import (
-    BadGitStateException, NoLocalPathException, PythonComponentSystemException
+    BadGitStateException,
+    NoLocalPathException,
+    PythonComponentSystemException,
 )
 from agentos.utils import AOS_CACHE_DIR
 from agentos.component import ComponentIdentifier
@@ -47,9 +49,9 @@ class Repo(abc.ABC):
         for identifier, inner_spec in spec.items():
             repo_type = inner_spec["type"]
             if repo_type == RepoType.LOCAL.value:
-                assert base_dir, (
-                    "The `base_dir` arg is required for local repos."
-                )
+                assert (
+                    base_dir
+                ), "The `base_dir` arg is required for local repos."
                 path = Path(base_dir) / inner_spec["path"]
                 return LocalRepo(identifier=identifier, file_path=path)
             elif repo_type == RepoType.GITHUB.value:
@@ -263,7 +265,7 @@ class GitHubRepo(Repo):
     def to_spec(self, flatten: bool = False) -> Dict:
         inner = {
             RepoSpecKeys.TYPE: self.type.value,
-            RepoSpecKeys.URL: self.url
+            RepoSpecKeys.URL: self.url,
         }
         return self.optionally_flatten_spec(inner, flatten)
 

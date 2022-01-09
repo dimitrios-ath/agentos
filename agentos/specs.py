@@ -43,6 +43,7 @@ class RepoSpecKeys(Enum):
     URL = "url"
     PATH = "path"
 
+
 # A paramSet is serialized as a ParameterSetSpec, which is a YAML dictionary
 # with the following structure:
 # {component_name: {entry_point_name: {param_name: param_val}}
@@ -75,4 +76,3 @@ RunSpec = Mapping
 
 class RunSpecKeys(Enum):
     IDENTIFIER = "identifier"
-

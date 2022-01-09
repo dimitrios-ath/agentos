@@ -1,16 +1,18 @@
-import os
 import pprint
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
-from mlflow import list_run_infos, get_run
+from mlflow import list_run_infos
 from agentos.registry import Registry
 from agentos.parameter_set import ParameterSet
 from agentos.exceptions import PythonComponentSystemException
 from agentos.specs import RunSpec
 from agentos.run_command import RunCommand
 from agentos.identifiers import RunIdentifier
+
+if TYPE_CHECKING:
+    from agentos.component import Component
 
 
 class Run:
@@ -80,11 +82,11 @@ class Run:
         if existing_run_id:
             try:
                 self._mlflow_client.get_run(existing_run_id)
-                #component = self.
-                #entry_point =
-                #param_set =
-                #run_command = RunCommand(component, entry_point, param_set)
-                #self.run_command = run_command
+                # component = self.
+                # entry_point =
+                # param_set =
+                # run_command = RunCommand(component, entry_point, param_set)
+                # self.run_command = run_command
             except MlflowException as mlflow_exception:
                 print(
                     "Error: When creating an AgentOS Run using an "
@@ -132,6 +134,7 @@ class Run:
         A helper function.
         """
         from agentos.component import Component
+
         if isinstance(caller, Component):
             component = caller
         else:
@@ -192,12 +195,12 @@ class Run:
 
     def __getattr__(self, attr_name):
         prefix_matches = [
-            attr_name.startswith(x)
-            for x in self.PASS_THROUGH_FN_PREFIXES
+            attr_name.startswith(x) for x in self.PASS_THROUGH_FN_PREFIXES
         ]
         if any(prefix_matches):
             try:
                 from functools import partial
+
                 mlflow_client_fn = getattr(self._mlflow_client, attr_name)
                 return partial(mlflow_client_fn, self._mlflow_run_id)
             except AttributeError as e:
@@ -237,10 +240,7 @@ class Run:
         self.log_dict(component_dict, self.ROOT_COMPONENT_REGISTRY_FILENAME)
 
     def log_parameter_set(self, param_set: ParameterSet) -> None:
-        self.log_dict(
-            param_set.to_spec(),
-            self.PARAM_SET_FILENAME
-        )
+        self.log_dict(param_set.to_spec(), self.PARAM_SET_FILENAME)
 
     def log_entry_point(self, entry_point: str) -> None:
         self.set_tag(self.ENTRY_POINT_KEY, str)
@@ -261,18 +261,21 @@ class Run:
         filename_base = self.identifier + "-return_value"
         if format == "pickle":
             import pickle
+
             filename = filename_base + ".pickle"
-            with open(filename, 'wb') as f:
+            with open(filename, "wb") as f:
                 pickle.dump(ret_val, f)
         elif format == "json":
             import json
+
             filename = filename_base + ".json"
-            with open(filename, 'w') as f:
+            with open(filename, "w") as f:
                 json.dump(ret_val, f)
         elif format == "yaml":
             import yaml
+
             filename = filename_base + ".yaml"
-            with open(filename, 'w') as f:
+            with open(filename, "w") as f:
                 yaml.dump(ret_val, f)
         else:
             raise PythonComponentSystemException("Invalid format provided")
@@ -296,9 +299,9 @@ class Run:
         registry: Registry,
         run_id: RunIdentifier,
     ) -> "Run":
-        run_spec = registry.get_run_spec(run_id)
-        #TODO figure out a way to deserialize an MLflowRun from the registry
+        # TODO figure out a way to deserialize an MLflowRun from the registry
         #     and reconcile that with what is in the tracking store.
+        # run_spec = registry.get_run_spec(run_id)
         raise NotImplementedError
 
     @classmethod
@@ -324,23 +327,23 @@ class Run:
         registry: Registry = None,
         recurse: bool = True,
         force: bool = False,
-        include_artifacts: bool = False
+        include_artifacts: bool = False,
     ) -> Registry:
         if not registry:
             from agentos.registry import InMemoryRegistry
+
             registry = InMemoryRegistry()
         registry.add_run_spec(self.to_spec())
         # If we are writing to a WebRegistry, have local artifacts, and
         # include_artifacts is True, try uploading the artifact files to the
         # registry.
         if (
-            include_artifacts and
-            hasattr(registry, "add_run_artifacts") and
-            self.info.artifact_uri.startswith("file://")
+            include_artifacts
+            and hasattr(registry, "add_run_artifacts")
+            and self.info.artifact_uri.startswith("file://")
         ):
             local_artifact_path = self.get_artifacts_dir_path()
-            registry.add_run_artifacts(self.identifier,
-                                       local_artifact_path)
+            registry.add_run_artifacts(self.identifier, local_artifact_path)
         if recurse:
             self.run_command.to_registry(
                 registry, recurse=recurse, force=force
@@ -365,4 +368,3 @@ class Run:
             return
         else:
             {self.identifier: inner_spec}
-

@@ -12,8 +12,13 @@ from typing import Dict, Sequence, Union, TYPE_CHECKING
 from dotenv import load_dotenv
 from agentos.identifiers import ComponentIdentifier, RunIdentifier
 from agentos.specs import (
-    RepoSpec, ComponentSpec, NestedComponentSpec, RunSpec, RunCommandSpec
+    RepoSpec,
+    ComponentSpec,
+    NestedComponentSpec,
+    RunSpec,
+    RunCommandSpec,
 )
+
 if TYPE_CHECKING:
     from agentos.component import Component
 
@@ -148,7 +153,7 @@ class Registry(abc.ABC):
     def get_component_spec_by_id(
         self,
         identifier: Union[ComponentIdentifier, str],
-        flatten: bool = False
+        flatten: bool = False,
     ) -> ComponentSpec:
         identifier = ComponentIdentifier.from_str(str(identifier))
         return self.get_component_spec(
@@ -160,10 +165,14 @@ class Registry(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_run_spec(self, run_id: str, flatten: bool = False) -> RunSpec:
+    def get_run_spec(
+        self, run_id: RunIdentifier, flatten: bool = False
+    ) -> RunSpec:
         raise NotImplementedError
 
-    def get_run_command_spec(self, run_command_id: str, flatten: bool = False) -> RunCommandSpec:
+    def get_run_command_spec(
+        self, run_command_id: str, flatten: bool = False
+    ) -> RunCommandSpec:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -251,7 +260,9 @@ class InMemoryRegistry(Registry):
         else:
             return {repo_id: inner}
 
-    def get_run_spec(self, run_id: str, flatten: bool = False) -> RunSpec:
+    def get_run_spec(
+        self, run_id: RunIdentifier, flatten: bool = False
+    ) -> RunSpec:
         inner = {run_id: self._registry["runs"][run_id]}
         if flatten:
             inner.update({"identifier": inner})
@@ -323,8 +334,14 @@ class WebRegistry(Registry):
     ) -> RunCommandSpec:
         raise NotImplementedError
 
-    def get_run_spec(self, run_id: str, flatten: bool = False) -> RunSpec:
-        raise NotImplementedError
+    def get_run_spec(
+        self, run_id: RunIdentifier, flatten: bool = False
+    ) -> RunSpec:
+        if flatten:
+            raise NotImplementedError
+        run_url = f"{self.root_api_url}/runs/{run_id}"
+        run_response = requests.get(run_url)
+        return json.loads(run_response.content)
 
     def get_registries(self) -> Sequence:
         raise NotImplementedError
@@ -375,11 +392,7 @@ class WebRegistry(Registry):
         finally:
             shutil.rmtree(tmp_dir_path)
 
-    def get_run_spec(self, run_id: RunIdentifier) -> Dict:
-        run_url = f"{self.root_api_url}/runs/{run_id}"
-        run_response = requests.get(run_url)
-        return json.loads(run_response.content)
-
     def get_run(self, run_id: str) -> None:
         from agentos.run import Run
+
         return Run.from_registry(self, run_id)

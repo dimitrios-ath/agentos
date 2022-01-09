@@ -27,9 +27,9 @@ class ParameterSet:
                         assert isinstance(param_name, str)
         self._parameters = parameters if parameters else {}
         # Ensure serializability.
-        assert self.to_sorted_dict_str(), (
-            "parameters dict must be serializable"
-        )
+        assert (
+            self.to_sorted_dict_str()
+        ), "parameters dict must be serializable"
 
     def __eq__(self, other) -> bool:
         if isinstance(other, self.__class__):
@@ -90,7 +90,7 @@ class ParameterSet:
     def _sha1(self) -> str:
         # Not positive if this is stable across architectures.
         # See https://stackoverflow.com/q/27522626
-        return sha1(self.to_sorted_dict_str().encode('utf-8')).hexdigest()
+        return sha1(self.to_sorted_dict_str().encode("utf-8")).hexdigest()
 
     def to_sorted_dict_str(self) -> str:
         # See https://stackoverflow.com/a/22003440

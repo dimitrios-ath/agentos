@@ -58,7 +58,7 @@ class RegistryTestCases(TestCase):
 
     def test_run_upload_artifact(self):
         self.assertFalse(bool(self.run.artifact_tarball))
-        url = reverse("run-upload-artifact", kwargs={"pk": self.run.identifier})
+        url = reverse("run-upload-artifact", kwargs={"pk": self.run.id})
         tarball = open(self.static_dir / "test_artifacts.tar.gz", "rb")
         response = self.client.post(url, {"tarball": tarball})
         self.assertEqual(response.status_code, 200)
@@ -71,14 +71,14 @@ class RegistryTestCases(TestCase):
                 "test_artifacts.tar.gz", File(file_in)
             )
             self.run.save()
-        url = reverse("run-download-artifact", kwargs={"pk": self.run.identifier})
+        url = reverse("run-download-artifact", kwargs={"pk": self.run.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["Content-Type"], "application/gzip")
         self.assertIn("Content-Disposition", response.headers)
 
     def test_run_root_spec(self):
-        url = reverse("run-root-spec", kwargs={"pk": self.run.identifier})
+        url = reverse("run-root-spec", kwargs={"pk": self.run.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         spec = json.loads(response.content)
@@ -94,8 +94,8 @@ class RegistryTestCases(TestCase):
         )
         self.assertEqual(fail_response.status_code, 400)
         self.assertEqual(Component.objects.count(), 1)
-        component = Component.objects.get(id=self.component.identifier)
-        self.assertEqual(self.component.repo.identifier, component.repo.identifier)
+        component = Component.objects.get(id=self.component.id)
+        self.assertEqual(self.component.repo.id, component.repo.id)
         self.assertEqual(self.component.file_path, component.file_path)
         self.assertEqual(self.component.class_name, component.class_name)
         success_path = self.static_dir / "test_component_replace_success.yaml"

@@ -1,7 +1,7 @@
 import sys
 import uuid
 import importlib
-from typing import Union, TypeVar, Dict, Type, Any, Optional, Sequence
+from typing import Union, TypeVar, Dict, Type, Any, Sequence
 from rich import print as rich_print
 from rich.tree import Tree
 from agentos.run import Run, RunCommand
@@ -13,7 +13,7 @@ from agentos.registry import (
 )
 from agentos.exceptions import RegistryException
 from agentos.repo import Repo, InMemoryRepo, GitHubRepo
-from agentos.parameter_set import ParameterSet, ParameterSetSpec
+from agentos.parameter_set import ParameterSet
 
 # Use Python generics (https://mypy.readthedocs.io/en/stable/generics.html)
 T = TypeVar("T")
@@ -65,10 +65,7 @@ class Component:
 
     @classmethod
     def from_registry(
-        cls,
-        registry: Registry,
-        name: str,
-        version: str = None
+        cls, registry: Registry, name: str, version: str = None
     ) -> "Component":
         """
         Returns a Component Object from the provided registry, including
@@ -83,8 +80,7 @@ class Component:
         while component_identifiers:
             component_id = component_identifiers.pop()
             component_spec = registry.get_component_spec_by_id(
-                component_id,
-                flatten=True
+                component_id, flatten=True
             )
             component_id_from_spec = ComponentIdentifier(
                 component_spec["name"], component_spec["version"]
@@ -92,9 +88,7 @@ class Component:
             repo_id = component_spec["repo"]
             if repo_id not in repos.keys():
                 repo_spec = registry.get_repo_spec(repo_id)
-                repos[repo_id] = Repo.from_spec(
-                    repo_spec, registry.base_dir
-                )
+                repos[repo_id] = Repo.from_spec(repo_spec, registry.base_dir)
             component = cls.from_repo(
                 repo=repos[repo_id],
                 identifier=component_id_from_spec,
@@ -189,7 +183,7 @@ class Component:
         params: Union[ParameterSet, Dict] = None,
         publish_to: Registry = None,
         log_return_value: bool = True,
-        return_value_log_format: str = "pickle"
+        return_value_log_format: str = "pickle",
     ) -> Run:
         """
         Run the specified entry point a new instance of this components
@@ -228,10 +222,7 @@ class Component:
         return run
 
     def call_function_with_param_set(
-        self,
-        instance: Any,
-        function_name: str,
-        param_set: ParameterSet
+        self, instance: Any, function_name: str, param_set: ParameterSet
     ) -> Any:
         fn = getattr(instance, function_name)
         assert fn is not None, f"{instance} has no attr {function_name}"
@@ -367,10 +358,11 @@ class Component:
                 repo_spec = registry.get_repo_spec(c.repo.identifier)
                 if repo_spec != c.repo.to_spec():
                     raise RegistryException(
-                        f"A Repo with identifier {c.repo.identifier} already exists"
-                        f"in this registry that differs from the one referred "
-                        f"to by component {c.identifier}: {repo_spec} vs "
-                        f"{c.repo.to_spec()[c.repo.name]}"
+                        f"A Repo with identifier {c.repo.identifier} already "
+                        "exists in this registry that differs from the one "
+                        f"referred to by component {c.identifier}.\n"
+                        f"New repo spec:\n{repo_spec}\n\n"
+                        f"Existing repo spec:\n{c.repo.to_spec()}"
                     )
             except LookupError:
                 # Repo not yet registered, so so add it to this registry.

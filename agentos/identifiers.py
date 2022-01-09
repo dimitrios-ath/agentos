@@ -5,6 +5,7 @@ class ComponentIdentifier:
     allows referring to Components both as [name] and [name]==[version] (e.g.,
     in registries or the command line).
     """
+
     @staticmethod
     def from_str(identifier_string: str) -> "ComponentIdentifier":
         split_identifier = str(identifier_string).split("==")
