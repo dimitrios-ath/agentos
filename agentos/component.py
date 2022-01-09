@@ -6,7 +6,7 @@ from rich import print as rich_print
 from rich.tree import Tree
 from agentos.run import Run, RunCommand
 from agentos.identifiers import ComponentIdentifier
-from agentos.specs import ComponentSpec
+from agentos.specs import ComponentSpec, ComponentSpecKeys
 from agentos.registry import (
     Registry,
     InMemoryRegistry,
@@ -316,7 +316,7 @@ class Component:
         }
         if flatten:
             component_spec_content.update(
-                {ComponentSpec.identifier_key: str(self.identifier)}
+                {ComponentSpecKeys.IDENTIFIER: str(self.identifier)}
             )
             return component_spec_content
         else:

@@ -1,7 +1,10 @@
+import os
 import pprint
+from pathlib import Path
 from typing import Any
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
+from mlflow import list_run_infos, get_run
 from agentos.registry import Registry
 from agentos.parameter_set import ParameterSet
 from agentos.exceptions import PythonComponentSystemException
@@ -104,6 +107,14 @@ class Run:
 
     def __del__(self):
         self._mlflow_client.set_terminated(self._mlflow_run_id)
+
+    @classmethod
+    def get_all_runs(cls):
+        run_infos = list_run_infos(
+            experiment_id=cls.DEFAULT_EXPERIMENT_ID,
+            order_by=["attribute.end_time DESC"],
+        )
+        return [Run.from_existing_run_id(info.run_id) for info in run_infos]
 
     @classmethod
     def from_existing_run_id(cls, run_id: str) -> "Run":
@@ -266,6 +277,7 @@ class Run:
         else:
             raise PythonComponentSystemException("Invalid format provided")
         self.log_artifact(filename)
+        Path(filename).unlink(missing_ok=True)
 
     def print_status(self, detailed: bool = False) -> None:
         if not detailed:

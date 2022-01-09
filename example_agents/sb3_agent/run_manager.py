@@ -65,13 +65,14 @@ class SB3RunManager(AgentRunManager):
         self.learn_callback = LearnCallback(self)
 
     def save(self, name: str, policy: BasePolicy):
-        assert mlflow.active_run() is not None
+        active_run = Run.active_run(self)
+        assert active_run is not None
         zipped_name = f"{name}.zip"
         dir_path = Path(tempfile.mkdtemp())
         policy.save(dir_path / name)
         artifact_path = dir_path / zipped_name
         assert artifact_path.is_file()
-        mlflow.log_artifact(artifact_path)
+        active_run.log_artifact(artifact_path)
         shutil.rmtree(dir_path)
 
     # TODO - can probably be simplified

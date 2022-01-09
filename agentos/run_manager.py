@@ -69,13 +69,13 @@ class AgentRunManager:
         self._log_run_type()
 
     def log_agent_name(self, agent_name: str) -> None:
-        self.tracker.log_param(self.AGENT_NAME_KEY, agent_name)
+        self._active_run.log_param(self.AGENT_NAME_KEY, agent_name)
 
     def log_environment_name(self, environment_name: str) -> None:
-        self.tracker.log_param(self.ENV_NAME_KEY, environment_name)
+        self._active_run.log_param(self.ENV_NAME_KEY, environment_name)
 
     def _log_run_type(self) -> None:
-        self.tracker.set_tag(self.RUN_TYPE_TAG, self.run_type)
+        self._active_run.set_tag(self.RUN_TYPE_TAG, self.run_type)
 
     def log_run_metrics(self):
         assert self.episode_data, "No episode data!"
@@ -89,9 +89,9 @@ class AgentRunManager:
         total_episodes = 0
         total_steps = 0
         for run in runs:
-            if run.tags.get(self.RUN_TYPE_TAG) == self.LEARN_KEY:
-                total_episodes += int(run.metrics.get(_EPISODE_KEY, 0))
-                total_steps += int(run.metrics.get(_STEP_KEY, 0))
+            if run.data.tags.get(self.RUN_TYPE_TAG) == self.LEARN_KEY:
+                total_episodes += int(run.data.metrics.get(_EPISODE_KEY, 0))
+                total_steps += int(run.data.metrics.get(_STEP_KEY, 0))
         return total_episodes, total_steps
 
     def print_results(self):

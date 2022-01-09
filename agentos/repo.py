@@ -2,7 +2,7 @@ import os
 import sys
 import abc
 from enum import Enum
-from typing import TypeVar, Dict
+from typing import TypeVar, Dict, Tuple, Union
 from pathlib import Path
 from dulwich import porcelain
 from dulwich.repo import Repo as PorcelainRepo
@@ -14,8 +14,8 @@ from agentos.exceptions import (
     BadGitStateException, NoLocalPathException, PythonComponentSystemException
 )
 from agentos.utils import AOS_CACHE_DIR
-from agentos import component
-from agentos.specs import RepoSpec
+from agentos.component import ComponentIdentifier
+from agentos.specs import RepoSpec, NestedRepoSpec, RepoSpecKeys
 
 # Use Python generics (https://mypy.readthedocs.io/en/stable/generics.html)
 T = TypeVar("T")
@@ -25,7 +25,6 @@ class RepoType(Enum):
     LOCAL = "local"
     GITHUB = "github"
     IN_MEMORY = "in_memory"
-    UNKNOWN = "unknown"
 
 
 class Repo(abc.ABC):
@@ -34,8 +33,16 @@ class Repo(abc.ABC):
     is located.
     """
 
+    def __init__(self, identifier: str):
+        self.identifier = identifier
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Repo):
+            return self.to_spec() == other.to_spec()
+        return self == other
+
     @staticmethod
-    def from_spec(spec: RepoSpec, base_dir: Path = None) -> "Repo":
+    def from_spec(spec: NestedRepoSpec, base_dir: Path = None) -> "Repo":
         assert len(spec) == 1
         for identifier, inner_spec in spec.items():
             repo_type = inner_spec["type"]
@@ -49,21 +56,13 @@ class Repo(abc.ABC):
                 return GitHubRepo(identifier=identifier, url=inner_spec["url"])
             elif repo_type == RepoType.IN_MEMORY.value:
                 return InMemoryRepo()
-            elif repo_type == RepoType.UNKNOWN.value:
-                return UnknownRepo()
-            else:
-                raise PythonComponentSystemException(
-                    f"Unknown repo spec type '{repo_type} in repo {identifier}"
-                )
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Repo):
-            return self.to_spec() == other.to_spec()
-        return self == other
+        raise PythonComponentSystemException(
+            f"Unknown repo spec type '{repo_type} in repo {identifier}"
+        )
 
     @abc.abstractmethod
     def to_spec(self, flatten: bool = False) -> RepoSpec:
-        return NotImplementedError
+        return NotImplementedError  # type: ignore
 
     def optionally_flatten_spec(self, inner: dict, flatten: bool):
         """
@@ -73,20 +72,27 @@ class Repo(abc.ABC):
         :return: a spec that is either flattened or not.
         """
         if flatten:
-            inner.update({RepoSpec.identifier_key: self.identifier})
+            inner.update({RepoSpecKeys.IDENTIFIER: self.identifier})
             return inner
         else:
             return {self.identifier: inner}
 
+    @abc.abstractmethod
     def get_local_repo_path(self, version: str) -> Path:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_local_file_path(
+        self, identifier: ComponentIdentifier, file_path: str
+    ) -> Path:
         raise NotImplementedError()
 
     def get_version_from_git(
         self,
-        component_identifier: "component.Component.Identifier",
+        component_identifier: ComponentIdentifier,
         file_path: str,
         force: bool = False,
-    ) -> (str, str):
+    ) -> Tuple[str, str]:
         """
         Given a path to a Component, this returns a git hash and GitHub repo
         URL where the current version of the Component is publicly accessible.
@@ -204,7 +210,7 @@ class Repo(abc.ABC):
                 raise BadGitStateException(error_msg)
 
     def get_prefixed_path_from_repo_root(
-        self, identifier: "component.Component.Identifier", file_path: str
+        self, identifier: ComponentIdentifier, file_path: str
     ) -> Path:
         """
         Finds the 'component_path' relative to the repo containing the
@@ -240,27 +246,13 @@ class Repo(abc.ABC):
         raise BadGitStateException(f"Unable to find repo: {full_path}")
 
 
-class UnknownRepo(Repo):
-    """
-    A fallback; a Component with an UnknownRepo doesn't have a known
-    public source.
-    """
-
-    def __init__(self, identifier: str = None):
-        self.identifier = identifier if identifier else "unknown_repo"
-        self.type = RepoType.UNKNOWN
-
-    def to_spec(self, flatten: bool = False) -> RepoSpec:
-        return self.optionally_flatten_spec({"type": self.type}, flatten)
-
-
 class GitHubRepo(Repo):
     """
     A Component with an GitHubRepo can be found on GitHub.
     """
 
     def __init__(self, identifier: str, url: str):
-        self.identifier = identifier
+        super().__init__(identifier)
         self.type = RepoType.GITHUB
         # https repo link allows for cloning without unlocking your GitHub keys
         url = url.replace("git@github.com:", "https://github.com/")
@@ -270,18 +262,24 @@ class GitHubRepo(Repo):
 
     def to_spec(self, flatten: bool = False) -> Dict:
         inner = {
-            RepoSpec.type_key: self.type.value,
-            RepoSpec.url_key: self.url
+            RepoSpecKeys.TYPE: self.type.value,
+            RepoSpecKeys.URL: self.url
         }
         return self.optionally_flatten_spec(inner, flatten)
 
-    def get_local_repo_path(self, version: str) -> str:
+    def get_local_repo_path(self, version: str) -> Path:
         local_repo_path = self._clone_repo(version)
         self._checkout_version(local_repo_path, version)
         sys.stdout.flush()
         return local_repo_path
 
-    def _clone_repo(self, version: str) -> str:
+    def get_local_file_path(
+        self, identifier: ComponentIdentifier, file_path: str
+    ) -> Path:
+        local_repo_path = self.get_local_repo_path(identifier.version)
+        return (local_repo_path / file_path).absolute()
+
+    def _clone_repo(self, version: str) -> Path:
         org_name, proj_name = self.url.split("/")[-2:]
         clone_destination = AOS_CACHE_DIR / org_name / proj_name / version
         if not clone_destination.exists():
@@ -292,7 +290,7 @@ class GitHubRepo(Repo):
         assert clone_destination.exists(), f"Unable to clone {self.url}"
         return clone_destination
 
-    def _checkout_version(self, local_repo_path: str, version: str) -> None:
+    def _checkout_version(self, local_repo_path: Path, version: str) -> None:
         to_checkout = version if version else "master"
         curr_dir = os.getcwd()
         os.chdir(local_repo_path)
@@ -311,27 +309,21 @@ class GitHubRepo(Repo):
         porcelain.reset(repo=repo, mode="hard", treeish=treeish)
         os.chdir(curr_dir)
 
-    def get_local_file_path(
-        self, identifier: "component.Component.Identifier", file_path: str
-    ) -> Path:
-        local_repo_path = self.get_local_repo_path(identifier.version)
-        return (local_repo_path / file_path).absolute()
-
 
 class LocalRepo(Repo):
     """
     A Component with a LocalRepo can be found on your local drive.
     """
 
-    def __init__(self, identifier: str, file_path: str):
-        self.identifier = identifier
+    def __init__(self, identifier: str, file_path: Union[Path, str]):
+        super().__init__(identifier)
         self.type = RepoType.LOCAL
         self.file_path = Path(file_path).absolute()
 
     def to_spec(self, flatten: bool = False) -> RepoSpec:
         inner = {
-            RepoSpec.type_key: self.type.value,
-            RepoSpec.path_key: str(self.file_path),
+            RepoSpecKeys.TYPE: self.type.value,
+            RepoSpecKeys.PATH: str(self.file_path),
         }
         return self.optionally_flatten_spec(inner, flatten)
 
@@ -339,7 +331,7 @@ class LocalRepo(Repo):
         return self.file_path
 
     def get_local_file_path(
-        self, identifier: "component.Component.Identifier", file_path: str
+        self, identifier: ComponentIdentifier, file_path: str
     ) -> Path:
         return self.file_path / file_path
 
@@ -350,13 +342,16 @@ class InMemoryRepo(Repo):
     already loaded into Python.
     """
 
-    def __init__(self, identifier: str = None):
-        self.identifier = identifier if identifier else "in_memory"
+    def __init__(self, identifier: str = "in_memory"):
+        super().__init__(identifier)
         self.type = RepoType.IN_MEMORY
 
     def get_local_file_path(self, *args, **kwargs):
         raise NoLocalPathException()
 
+    def get_local_repo_path(self, *args, **kwargs):
+        raise NoLocalPathException()
+
     def to_spec(self, flatten: bool = False) -> RepoSpec:
-        inner = {RepoSpec.type_key: self.type.value}
+        inner = {RepoSpecKeys.TYPE: self.type.value}
         return self.optionally_flatten_spec(inner, flatten)

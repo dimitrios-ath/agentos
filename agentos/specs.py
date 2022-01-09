@@ -17,21 +17,31 @@ For developer convenience many functions support flattened specs, which have
 the spec identifier at the same level as the rest of the spec properties.
 """
 from typing import Mapping, Union, Any
+from enum import Enum
+
 
 FlatSpec = Mapping[str, str]
 
+
 NestedComponentSpec = Mapping[str, Mapping[str, str]]
 ComponentSpec = Union[NestedComponentSpec, FlatSpec]
-ComponentSpec.identifier_key = "identifier"
+
+
+class ComponentSpecKeys(Enum):
+    IDENTIFIER = "identifier"
+
 
 # Repo is serialized to a YAML dictionary with the following (unflatted) form:
 # {repo_identifier: {repo_property_key: repo_property_val}}
 NestedRepoSpec = Mapping[str, Mapping[str, str]]
 RepoSpec = Union[NestedRepoSpec, FlatSpec]
-RepoSpec.identifier_key = "identifier"
-RepoSpec.type_key = "type"
-RepoSpec.url_key = "url"
-RepoSpec.path_key = "path"
+
+
+class RepoSpecKeys(Enum):
+    IDENTIFIER = "identifier"
+    TYPE = "type"
+    URL = "url"
+    PATH = "path"
 
 # A paramSet is serialized as a ParameterSetSpec, which is a YAML dictionary
 # with the following structure:
@@ -49,12 +59,20 @@ RepoSpec.path_key = "path"
 ParameterSetSpec = Mapping[str, Mapping[str, Mapping[str, Any]]]
 ParameterSetSpec.identifier_key = "identifier"
 
+
 RunCommandSpec = Mapping
-RunCommandSpec.identifier_key = "identifier"
-RunCommandSpec.component_id_key = "component_id"
-RunCommandSpec.entry_point_key = "entry_point"
-RunCommandSpec.parameter_set_key = "parameter_set"
+
+
+class RunCommandSpecKeys(Enum):
+    IDENTIFIER = "identifier"
+    COMPONENT_ID = "component_id"
+    ENTRY_POINT = "entry_point"
+    PARAMETER_SET = "parameter_set"
+
 
 RunSpec = Mapping
-RunSpec.identifier_key = "identifier"
+
+
+class RunSpecKeys(Enum):
+    IDENTIFIER = "identifier"
 

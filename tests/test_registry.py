@@ -75,7 +75,7 @@ def test_registry_integration(venv):
 
 def test_registry_from_dict():
     from agentos.registry import Registry
-    from exceptions import RegistryException
+    from agentos.exceptions import RegistryException
     from agentos.utils import DUMMY_WEB_REGISTRY_DICT
     from agentos.component import Component
     from agentos.parameter_set import ParameterSet

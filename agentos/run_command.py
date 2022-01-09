@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
-from mlflow.exceptions import MlflowException
 from agentos.registry import Registry
-from agentos.specs import RunSpec, RunCommandSpec
+from agentos.specs import RunCommandSpec, RunCommandSpecKeys
 from agentos.identifiers import RunIdentifier, RunCommandIdentifier
 # Avoids circular imports
 if TYPE_CHECKING:
@@ -103,14 +102,14 @@ class RunCommand:
     def from_spec(
         cls, run_cmd_spec: RunCommandSpec, registry: Registry
     ) -> "RunCommand":
-        component_id = run_cmd_spec[RunCommandSpec.component_id_key]
+        component_id = run_cmd_spec[RunCommandSpecKeys.COMPONENT_ID]
         component = Component.from_registry(registry, component_id)
         new_run_cmd = cls(
             component=component,
-            entry_point=run_cmd_spec[RunCommandSpec.entry_point_key],
-            parameter_set=run_cmd_spec[RunCommandSpec.parameter_set_key]
+            entry_point=run_cmd_spec[RunCommandSpecKeys.ENTRY_POINT],
+            parameter_set=run_cmd_spec[RunCommandSpecKeys.PARAMETER_SET]
         )
-        assert new_run_cmd == run_cmd_spec[RunCommandSpec.identifier_key]
+        assert new_run_cmd == run_cmd_spec[RunCommandSpecKeys.IDENTIFIER]
         return new_run_cmd
 
     def publish(self) -> None:
@@ -160,12 +159,12 @@ class RunCommand:
 
     def to_spec(self, flatten: bool = False) -> RunCommandSpec:
         inner = {
-            RunCommandSpec.component_id_key: self._component.identifier.full,
-            RunCommandSpec.entry_point_key: self._entry_point,
-            RunCommandSpec.parameter_set_key: self._parameter_set.to_spec(),
+            RunCommandSpecKeys.COMPONENT_ID: self._component.identifier.full,
+            RunCommandSpecKeys.ENTRY_POINT: self._entry_point,
+            RunCommandSpecKeys.PARAMETER_SET: self._parameter_set.to_spec(),
         }
         if flatten:
-            inner.update({RunCommandSpec.identifier_key: self.identifier})
+            inner.update({RunCommandSpecKeys.IDENTIFIER: self.identifier})
             return inner
         else:
             return {self.identifier: inner}
