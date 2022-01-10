@@ -198,7 +198,11 @@ class Component:
             component's dependents during managed object initialization.
         :param publish_to: Optionally, publish the resulting Run object
             to the provided registry.
-        :param log_return_value: If the return value of this
+        :param log_return_value: If True, log the return value of the entry
+            point being run.
+        :param return_value_log_format: Specify which format to use when
+            serializing the return value. Only used if ``log_return_value``
+            is True.
         """
         assert not self.active_run, (
             f"Component {self.identifier} already has an active_run, so a "

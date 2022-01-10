@@ -141,7 +141,7 @@ class Run:
             try:
                 component = caller.__component__
             except AttributeError:
-                print(
+                raise PythonComponentSystemException(
                     "active_run() was called on an object that is not "
                     "managed by a Component. Specifically, the object passed "
                     "to active_run() must have a ``__component__`` attribute."
@@ -155,7 +155,8 @@ class Run:
                 )
             else:
                 run = Run()
-                print(
+                if isinstance(caller, Component):
+                    print(
                     "Warning: the object passed to active_run() is managed by "
                     "a Component that has no active_run. Returning a new run "
                     f"(id: {run.identifier}that is not associated with any "
