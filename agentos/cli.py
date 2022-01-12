@@ -184,13 +184,7 @@ def status(entity_id, registry_file):
 @agentos_cmd.command()
 @_arg_optional_entity_id
 def publish_run(entity_id):
-    if Run.run_exists(entity_id):
-        run = Run.get_by_id(run_id=entity_id)
-    else:
-        run = Run.get_latest_publishable_run()
-        if run is None:
-            raise Exception("No publishable runs found")
-    run.publish()
+    Run.from_existing_run_id(run_id=entity_id).publish()
 
 
 @agentos_cmd.command()

@@ -27,7 +27,7 @@ NestedComponentSpec = Mapping[str, Mapping[str, str]]
 ComponentSpec = Union[NestedComponentSpec, FlatSpec]
 
 
-class ComponentSpecKeys(Enum):
+class ComponentSpecKeys:
     IDENTIFIER = "identifier"
 
 
@@ -37,7 +37,7 @@ NestedRepoSpec = Mapping[str, Mapping[str, str]]
 RepoSpec = Union[NestedRepoSpec, FlatSpec]
 
 
-class RepoSpecKeys(Enum):
+class RepoSpecKeys:
     IDENTIFIER = "identifier"
     TYPE = "type"
     URL = "url"
@@ -64,8 +64,8 @@ ParameterSetSpec.identifier_key = "identifier"
 RunCommandSpec = Mapping
 
 
-class RunCommandSpecKeys(Enum):
-    IDENTIFIER = "identifier"
+class RunCommandSpecKeys:
+    IDENTIFIER = "identifier" # for flattened RunCommandSpec
     COMPONENT_ID = "component_id"
     ENTRY_POINT = "entry_point"
     PARAMETER_SET = "parameter_set"
@@ -74,5 +74,5 @@ class RunCommandSpecKeys(Enum):
 RunSpec = Mapping
 
 
-class RunSpecKeys(Enum):
+class RunSpecKeys:
     IDENTIFIER = "identifier"

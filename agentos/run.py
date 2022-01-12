@@ -1,11 +1,11 @@
 import pprint
+from urllib.parse import urlparse
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Sequence
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
-from mlflow import list_run_infos
+from mlflow.tracking.fluent import search_runs as search_mlflow_runs
 from agentos.registry import Registry
-from agentos.parameter_set import ParameterSet
 from agentos.exceptions import PythonComponentSystemException
 from agentos.specs import RunSpec
 from agentos.run_command import RunCommand
@@ -42,10 +42,8 @@ class Run:
 
     DEFAULT_EXPERIMENT_ID = "0"
     IS_FROZEN_KEY = "agentos.spec_is_frozen"
-    ROOT_COMPONENT_ID_KEY = "agentos.root_component_id"
-    ROOT_COMPONENT_REGISTRY_FILENAME = "agentos.components.yaml"
-    PARAM_SET_FILENAME = "agentos.parameter_set.yaml"
-    ENTRY_POINT_KEY = "agentos.entrypoint"
+    RUN_COMMAND_ID_KEY = "agentos.run_command_id"
+    RUN_COMMAND_REGISTRY_FILENAME = "agentos.run_command_registry.yaml"
     # Pass calls to the following functions through to this
     # Run's mlflow_client. All of these take run_id as
     # first arg, and so the pass-through logic also binds
@@ -72,21 +70,18 @@ class Run:
         :param experiment_id: Optional Experiment ID.
         :param existing_run_id: Optional Run ID.
         """
-        assert not (experiment_id and existing_run_id), (
-            "existing_run_id cannot be passed with either of run_command or "
-            "experiment_id."
-        )
         self._mlflow_client = MlflowClient()
         self._return_value = None
         self._run_command = None
         if existing_run_id:
+            assert not experiment_id, (
+                "`existing_run_id` cannot be passed with `run_command`"
+            )
+            assert not run_command, (
+                "`existing_run_id` cannot be passed with `experiment_id`."
+            )
             try:
                 self._mlflow_client.get_run(existing_run_id)
-                # component = self.
-                # entry_point =
-                # param_set =
-                # run_command = RunCommand(component, entry_point, param_set)
-                # self.run_command = run_command
             except MlflowException as mlflow_exception:
                 print(
                     "Error: When creating an AgentOS Run using an "
@@ -96,27 +91,39 @@ class Run:
                 )
                 raise mlflow_exception
             self._mlflow_run_id = existing_run_id
+            self._run_command = self._fetch_run_command()
         else:
             if experiment_id:
+                assert not existing_run_id, (
+                    "`experiment_id` cannot be passed with `existing_run_id`"
+                )
                 exp_id = experiment_id
             else:
                 exp_id = self.DEFAULT_EXPERIMENT_ID
             new_run = self._mlflow_client.create_run(exp_id)
             self._mlflow_run_id = new_run.info.run_id
-
-        if run_command:
-            self.add_run_command(run_command)
+            if run_command:
+                self.log_run_command(run_command)
 
     def __del__(self):
         self._mlflow_client.set_terminated(self._mlflow_run_id)
 
     @classmethod
     def get_all_runs(cls):
-        run_infos = list_run_infos(
-            experiment_id=cls.DEFAULT_EXPERIMENT_ID,
-            order_by=["attribute.end_time DESC"],
+        run_infos = search_mlflow_runs(
+            experiment_ids=[cls.DEFAULT_EXPERIMENT_ID],
+            order_by=["attribute.start_time DESC"],
+            filter_string=f'tag.{cls.RUN_COMMAND_ID_KEY} ILIKE "%"'
         )
-        return [Run.from_existing_run_id(info.run_id) for info in run_infos]
+        print(f"{len(run_infos)} run infos")
+        print(run_infos)
+        res = []
+        for run_id in run_infos.run_id:
+            print(str(run_id))
+            r = Run.from_existing_run_id(str(run_id))
+            print(r)
+            res.append(r)
+        return res
 
     @classmethod
     def from_existing_run_id(cls, run_id: str) -> "Run":
@@ -216,16 +223,11 @@ class Run:
                 f"'{attr_name}'"
             )
 
-    def add_run_command(self, run_command: RunCommand) -> None:
-        assert not self._run_command, "run_command already logged."
-        self._run_command = run_command
-        self.log_component(run_command.component)
-        self.log_parameter_set(run_command.parameter_set)
-        self.log_entry_point(run_command.entry_point)
-
-    def log_component(self, root_component: "Component") -> None:
+    def log_run_command(self, run_command: RunCommand) -> None:
         """
-        Log a Registry YAML file for the root component being run, and its full
+        Log a Registry YAML file for the RunCommand of this run, including
+        the ParameterSet, entry_point (i.e., function name), component ID,
+        as well as the root component being run and its full
         transitive dependency graph of other components as part of this Run.
         This registry file will contain the component spec and repo spec for
         each component in the root component's dependency graph. Note that a
@@ -237,14 +239,26 @@ class Run:
         sharing purposes, which essentially normalizes the Run's root
         component's dependency graph into flat component specs.
         """
-        component_dict = root_component.to_registry().to_dict()
-        self.log_dict(component_dict, self.ROOT_COMPONENT_REGISTRY_FILENAME)
+        self._validate_no_run_command_logged()
+        self.set_tag(
+            self.RUN_COMMAND_ID_KEY, run_command.identifier
+        )
+        run_command_dict = run_command.to_registry().to_dict()
+        self.log_dict(run_command_dict, self.RUN_COMMAND_REGISTRY_FILENAME)
 
-    def log_parameter_set(self, param_set: ParameterSet) -> None:
-        self.log_dict(param_set.to_spec(), self.PARAM_SET_FILENAME)
-
-    def log_entry_point(self, entry_point: str) -> None:
-        self.set_tag(self.ENTRY_POINT_KEY, str)
+    def _validate_no_run_command_logged(self):
+        assert self.RUN_COMMAND_ID_KEY not in self._mlflow_run.data.tags, (
+            f"{self.RUN_COMMAND_ID_KEY} already found tags of MLflow run "
+            f"with id {self._mlflow_run_id}. A run_command can only be logged "
+            "once per a Run."
+        )
+        artifact_paths = [a.path for a in self.list_artifacts()]
+        assert self.RUN_COMMAND_REGISTRY_FILENAME not in artifact_paths, (
+            f"An artifact with name {self.RUN_COMMAND_REGISTRY_FILENAME} "
+            "has already been logged to the MLflow run with id "
+            f"{self._mlflow_run_id}. A run_command can only be logged "
+            "once per a Run."
+        )
 
     def log_return_value(
         self,
@@ -258,6 +272,9 @@ class Run:
         :param ret_val: The Python object returned by this Run to be logged.
         :param format: Valid values are 'pickle, 'json', or 'yaml'.
         """
+        assert not self._return_value, (
+            "return_value has already been logged and can only be logged once."
+        )
         self._return_value = ret_val
         filename_base = self.identifier + "-return_value"
         if format == "pickle":
@@ -282,6 +299,37 @@ class Run:
             raise PythonComponentSystemException("Invalid format provided")
         self.log_artifact(filename)
         Path(filename).unlink(missing_ok=True)
+
+    def _fetch_run_command(self) -> RunCommand:
+        try:
+            path = self.download_artifacts(self.RUN_COMMAND_REGISTRY_FILENAME)
+        except IOError as e:
+            raise IOError(
+                f"RunCommand registry artifact not found in Run with id "
+                f"{self._mlflow_run_id}. {repr(e)}"
+            )
+        assert self.RUN_COMMAND_ID_KEY in self._mlflow_run.data.tags, (
+            f"{self.RUN_COMMAND_ID_KEY} not found in the tags of MLflow "
+            f"run with id {self._mlflow_run_id}."
+        )
+        run_command_id = self._mlflow_run.data.tags[self.RUN_COMMAND_ID_KEY]
+        registry = Registry.from_yaml(path)
+        return RunCommand.from_registry(registry, run_command_id)
+
+    def get_artifacts_dir_path(self) -> Path:
+        artifacts_uri = urlparse(self._mlflow_run.info.artifact_uri)
+        if artifacts_uri.scheme != "file":
+            raise Exception(f"Non-local artifacts path: {artifacts_uri}")
+        return Path(artifacts_uri.path).absolute()
+
+    def _get_artifact_paths(self) -> Sequence[Path]:
+        artifacts_dir = self.get_artifacts_dir_path()
+        artifact_paths = [
+            Path(artifacts_dir) / a.path for a in self.list_artifacts()
+        ]
+        exist = [p.exists() for p in artifact_paths]
+        assert all(exist), f"Missing artifact paths: {artifact_paths}, {exist}"
+        return artifact_paths
 
     def print_status(self, detailed: bool = False) -> None:
         if not detailed:
@@ -341,7 +389,7 @@ class Run:
         if (
             include_artifacts
             and hasattr(registry, "add_run_artifacts")
-            and self.info.artifact_uri.startswith("file://")
+            and urlparse(self.info.artifact_uri).scheme == "file"
         ):
             local_artifact_path = self.get_artifacts_dir_path()
             registry.add_run_artifacts(self.identifier, local_artifact_path)

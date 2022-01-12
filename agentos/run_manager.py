@@ -85,7 +85,9 @@ class AgentRunManager:
             Run.log_metric(key, val)
 
     def get_training_info(self) -> (int, int):
+        print("IN TRAINING INFO")
         runs = Run.get_all_runs()
+        print(type(runs))
         total_episodes = 0
         total_steps = 0
         for run in runs:
@@ -184,8 +186,8 @@ class RunContextManager:
 
     def _check_component_exists_in_run(self, role_type: str) -> None:
         run = Run.active_run(self.run_manager)
-        artifacts_dir = run.get_artifacts_dir_path()
-        spec_path = artifacts_dir / Run.REGISTRY_ARTIFACT_KEY
+        artifacts_dir = run.download_artifacts('.')
+        spec_path = artifacts_dir / Run.RUN_COMMAND_REGISTRY_FILENAME
         names = [
             Component.Identifier.from_str(c_id).name
             for c_id in Registry.from_yaml(spec_path)

@@ -1,3 +1,4 @@
+from hashlib import sha1
 from typing import TYPE_CHECKING
 from agentos.registry import Registry
 from agentos.specs import RunCommandSpec, RunCommandSpecKeys
@@ -5,7 +6,7 @@ from agentos.identifiers import RunIdentifier, RunCommandIdentifier
 
 # Avoids circular imports
 if TYPE_CHECKING:
-    from agentos import Component
+    from agentos.component import Component
     from agentos.parameter_set import ParameterSet
     from agentos.run import Run
 
@@ -51,11 +52,17 @@ class RunCommand:
         return f"<agentos.run_command.RunCommand: {self}>"
 
     def __hash__(self) -> int:
-        return hash(
-            self.component.identifier.full
-            + self.entry_point
-            + str(self.parameter_set)
+        return int(self._sha1(), 16)
+
+    def _sha1(self) -> str:
+        # Not positive if this is stable across architectures.
+        # See https://stackoverflow.com/q/27522626
+        hash_str = (
+            self._component.identifier.full +
+            self._entry_point +
+            self._parameter_set.identifier
         )
+        return sha1(hash_str.encode("utf-8")).hexdigest()
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -104,14 +111,26 @@ class RunCommand:
     def from_spec(
         cls, run_cmd_spec: RunCommandSpec, registry: Registry
     ) -> "RunCommand":
-        component_id = run_cmd_spec[RunCommandSpecKeys.COMPONENT_ID]
+        assert(len(run_cmd_spec) == 1)
+        spec_identifier, inner_spec = None, None
+        for key, value in run_cmd_spec.items():
+            spec_identifier = key
+            inner_spec = value
+        component_id = inner_spec[RunCommandSpecKeys.COMPONENT_ID]
+        from agentos.component import Component
+        from agentos.parameter_set import ParameterSet
         component = Component.from_registry(registry, component_id)
+        param_set = ParameterSet.from_spec(inner_spec[RunCommandSpecKeys.PARAMETER_SET])
         new_run_cmd = cls(
             component=component,
-            entry_point=run_cmd_spec[RunCommandSpecKeys.ENTRY_POINT],
-            parameter_set=run_cmd_spec[RunCommandSpecKeys.PARAMETER_SET],
+            entry_point=inner_spec[RunCommandSpecKeys.ENTRY_POINT],
+            parameter_set=param_set
         )
-        assert new_run_cmd == run_cmd_spec[RunCommandSpecKeys.IDENTIFIER]
+        assert new_run_cmd.identifier == spec_identifier, (
+            f"Identifier of new run_command {new_run_cmd.identifier} "
+            "should match identifier of spec it was loaded from "
+            f"{spec_identifier}, but they don't match."
+        )
         return new_run_cmd
 
     def publish(self) -> None:
@@ -144,7 +163,6 @@ class RunCommand:
         """
         if not registry:
             from agentos.registry import InMemoryRegistry
-
             registry = InMemoryRegistry()
         registry.add_run_command_spec(self.to_spec())
         if recurse:

@@ -215,12 +215,14 @@ class Component:
             params = ParameterSet()
         run_command = RunCommand(self, entry_point, params)
         run = Run.from_run_command(run_command)
-        self.active_run = run
+        for c in self.dependency_list():
+            c.active_run = run
         instance = self.get_instance(params=params)
         res = self.call_function_with_param_set(instance, entry_point, params)
         if log_return_value:
             run.log_return_value(res, return_value_log_format)
-        self.active_run = None
+        for c in self.dependency_list():
+            c.active_run = None
         if publish_to:
             run.to_registry(publish_to)
         return run
@@ -343,7 +345,7 @@ class Component:
         """
         if not registry:
             registry = InMemoryRegistry()
-        for c in self.to_dependency_list():
+        for c in self.dependency_list():
             existing_c_spec = registry.get_component_specs(
                 filter_by_name=c.name, filter_by_version=c.version
             )
@@ -379,20 +381,20 @@ class Component:
         versioned = self._get_versioned_dependency_dag(force)
         return versioned.to_registry()
 
-    def to_dependency_list(
-        self, exclude_root: bool = False
+    def dependency_list(
+        self, include_root: bool = True
     ) -> Sequence["Component"]:
         """
         Return a normalized (i.e. flat) Sequence containing all transitive
         dependencies of this component and (optionally) this component.
 
-        :param exclude_root: Optionally exclude root component from the list.
-                             If False, self is first element in list returned.
+        :param include_root: Whether to include root component in the list.
+                             If True, self is first element in list returned.
         :return: a list containing all all of the transitive dependencies
                  of this component (optionally  including the root component).
         """
         component_queue = [self]
-        ret_val = set() if exclude_root else set([self])
+        ret_val = set([self]) if include_root else set()
         while component_queue:
             component = component_queue.pop()
             ret_val.add(component)
