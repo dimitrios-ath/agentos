@@ -41,9 +41,7 @@ class Run:
     """
 
     DEFAULT_EXPERIMENT_ID = "0"
-    IS_FROZEN_KEY = "agentos.spec_is_frozen"
-    RUN_COMMAND_ID_KEY = "agentos.run_command_id"
-    RUN_COMMAND_REGISTRY_FILENAME = "agentos.run_command_registry.yaml"
+    AGENTOS_RUN_TAG = "agentos.run"
     # Pass calls to the following functions through to this
     # Run's mlflow_client. All of these take run_id as
     # first arg, and so the pass-through logic also binds
@@ -57,7 +55,6 @@ class Run:
 
     def __init__(
         self,
-        run_command: "RunCommand" = None,
         experiment_id: str = None,
         existing_run_id: str = None,
     ) -> None:
@@ -66,19 +63,14 @@ class Run:
         __init__. For example: Run.from_run_command(),
         Run.from_existing_run_id().
 
-        :param run_command: Optional RunCommand object.
         :param experiment_id: Optional Experiment ID.
         :param existing_run_id: Optional Run ID.
         """
         self._mlflow_client = MlflowClient()
         self._return_value = None
-        self._run_command = None
         if existing_run_id:
             assert not experiment_id, (
-                "`existing_run_id` cannot be passed with `run_command`"
-            )
-            assert not run_command, (
-                "`existing_run_id` cannot be passed with `experiment_id`."
+                "`existing_run_id` cannot be passed with `experiment_id`"
             )
             try:
                 self._mlflow_client.get_run(existing_run_id)
@@ -91,19 +83,14 @@ class Run:
                 )
                 raise mlflow_exception
             self._mlflow_run_id = existing_run_id
-            self._run_command = self._fetch_run_command()
-        else:
+        else:  # new run
             if experiment_id:
-                assert not existing_run_id, (
-                    "`experiment_id` cannot be passed with `existing_run_id`"
-                )
                 exp_id = experiment_id
             else:
                 exp_id = self.DEFAULT_EXPERIMENT_ID
             new_run = self._mlflow_client.create_run(exp_id)
             self._mlflow_run_id = new_run.info.run_id
-            if run_command:
-                self.log_run_command(run_command)
+            self.set_tag(self.AGENTOS_RUN_TAG, "True")
 
     def __del__(self):
         self._mlflow_client.set_terminated(self._mlflow_run_id)
@@ -113,7 +100,7 @@ class Run:
         run_infos = search_mlflow_runs(
             experiment_ids=[cls.DEFAULT_EXPERIMENT_ID],
             order_by=["attribute.start_time DESC"],
-            filter_string=f'tag.{cls.RUN_COMMAND_ID_KEY} ILIKE "%"'
+            filter_string=f'tag.{cls.AGENTOS_RUN_TAG} ILIKE "%"'
         )
         print(f"{len(run_infos)} run infos")
         print(run_infos)
@@ -126,14 +113,12 @@ class Run:
         return res
 
     @classmethod
-    def from_existing_run_id(cls, run_id: str) -> "Run":
+    def from_existing_run_id(cls, run_id: RunIdentifier) -> "Run":
         return cls(existing_run_id=run_id)
 
     @classmethod
-    def from_run_command(
-        cls, run_command: RunCommand, experiment_id: str = None
-    ) -> "Run":
-        return cls(run_command=run_command, experiment_id=experiment_id)
+    def from_tracking_store(cls, run_id: RunIdentifier):
+        return cls.from_existing_run_id(run_id)
 
     @staticmethod
     def active_run(caller: Any, fail_if_no_active_run: bool = False) -> "Run":
@@ -164,11 +149,11 @@ class Run:
                 run = Run()
                 if isinstance(caller, Component):
                     print(
-                    "Warning: the object passed to active_run() is managed by "
-                    "a Component that has no active_run. Returning a new run "
-                    f"(id: {run.identifier}that is not associated with any "
-                    "Run object."
-                )
+                        "Warning: the object passed to active_run() is "
+                        "managed by a Component that has no active_run. "
+                        f"Returning a new run (id: {run.identifier} that is "
+                        "not associated with any Run object."
+                    )
             return run
         else:
             return component.active_run
@@ -176,18 +161,6 @@ class Run:
     @property
     def _mlflow_run(self):
         return self._mlflow_client.get_run(self._mlflow_run_id)
-
-    @property
-    def run_command(self) -> "RunCommand":
-        return self._run_command
-
-    @property
-    def return_value(self) -> str:
-        return self._return_value
-
-    @property
-    def is_reproducible(self) -> bool:
-        return bool(self.run_command)
 
     @property
     def identifier(self) -> str:
@@ -222,6 +195,138 @@ class Run:
                 f"type object '{self.__class__}' has no attribute "
                 f"'{attr_name}'"
             )
+
+    def _get_artifact_paths(self) -> Sequence[Path]:
+        artifacts_dir = self.download_artifacts('.')
+        artifact_paths = [
+            Path(artifacts_dir) / a.path for a in self.list_artifacts()
+        ]
+        exist = [p.exists() for p in artifact_paths]
+        assert all(exist), f"Missing artifact paths: {artifact_paths}, {exist}"
+        return artifact_paths
+
+    def print_status(self, detailed: bool = False) -> None:
+        if not detailed:
+            filtered_tags = {
+                k: v
+                for k, v in self.data.tags.items()
+                if not k.startswith("mlflow.")
+            }
+            print(f"\tRun {self.identifier}: {filtered_tags}")
+        else:
+            pprint.pprint(self.to_spec())
+
+    @classmethod
+    def from_registry(
+        cls,
+        registry: Registry,
+        run_id: RunIdentifier,
+    ) -> "Run":
+        # TODO figure out a way to deserialize an MLflowRun from the registry
+        #     and reconcile that with what is in the tracking store.
+        # run_spec = registry.get_run_spec(run_id)
+        raise NotImplementedError
+
+    def to_registry(
+        self,
+        registry: Registry = None,
+        include_artifacts: bool = False,
+    ) -> Registry:
+        if not registry:
+            from agentos.registry import InMemoryRegistry
+            registry = InMemoryRegistry()
+        registry.add_run_spec(self.to_spec())
+        # If we are writing to a WebRegistry, have local artifacts, and
+        # include_artifacts is True, try uploading the artifact files to the
+        # registry.
+        if (
+            include_artifacts
+            and hasattr(registry, "add_run_artifacts")
+            and urlparse(self.info.artifact_uri).scheme == "file"
+        ):
+            local_artifact_path = self.get_artifacts_dir_path()
+            registry.add_run_artifacts(self.identifier, local_artifact_path)
+        return registry
+
+    def to_spec(self, flatten: bool = False) -> RunSpec:
+        return self._mlflow_run.to_dict()
+
+
+class ComponentRun(Run):
+    IS_FROZEN_KEY = "agentos.spec_is_frozen"
+    RUN_COMMAND_ID_KEY = "agentos.run_command_id"
+    RUN_COMMAND_REGISTRY_FILENAME = "agentos.run_command_registry.yaml"
+    """
+    A ComponentRun represents the execution of a specific entry point of a
+    specific Component with a specific parameter set.
+    """
+    def __init__(
+        self,
+        run_command: RunCommand = None,
+        experiment_id: str = None,
+        existing_run_id: str = None,
+    ) -> None:
+        super().__init__(
+            experiment_id=experiment_id,
+            existing_run_id=existing_run_id
+        )
+        assert not (run_command and existing_run_id), (
+            "`run_command` cannot be passed with `existing_run_id`."
+        )
+        self._run_command = None
+        if run_command:
+            self._run_command = self._fetch_run_command()
+            self.log_run_command(run_command)
+
+    @property
+    def run_command(self) -> "RunCommand":
+        return self._run_command
+
+    @property
+    def return_value(self) -> str:
+        return self._return_value
+
+    @property
+    def is_reproducible(self) -> bool:
+        return bool(self.run_command)
+
+    @classmethod
+    def from_run_command(
+        cls, run_command: RunCommand, experiment_id: str = None
+    ) -> "Run":
+        return cls(
+            run_command=run_command,
+            experiment_id=experiment_id
+        )
+
+    def to_registry(
+        self,
+        registry: Registry = None,
+        recurse: bool = True,
+        force: bool = False,
+        include_artifacts: bool = False,
+    ) -> Registry:
+        super().to_registry(registry)
+        if recurse:
+            self.run_command.to_registry(
+                registry, recurse=recurse, force=force
+            )
+
+    def _fetch_run_command(self) -> RunCommand:
+        try:
+            path = self.download_artifacts(self.RUN_COMMAND_REGISTRY_FILENAME)
+        except IOError as e:
+            raise IOError(
+                f"RunCommand registry artifact not found in Run with id "
+                f"{self._mlflow_run_id}. {repr(e)}"
+            )
+        assert self.RUN_COMMAND_ID_KEY in self._mlflow_run.data.tags, (
+            f"{self.RUN_COMMAND_ID_KEY} not found in the tags of MLflow "
+            f"run with id {self._mlflow_run_id}."
+        )
+        run_command_id = self._mlflow_run.data.tags[self.RUN_COMMAND_ID_KEY]
+        registry = Registry.from_yaml(path)
+        return RunCommand.from_registry(registry, run_command_id)
 
     def log_run_command(self, run_command: RunCommand) -> None:
         """
@@ -300,105 +405,6 @@ class Run:
         self.log_artifact(filename)
         Path(filename).unlink(missing_ok=True)
 
-    def _fetch_run_command(self) -> RunCommand:
-        try:
-            path = self.download_artifacts(self.RUN_COMMAND_REGISTRY_FILENAME)
-        except IOError as e:
-            raise IOError(
-                f"RunCommand registry artifact not found in Run with id "
-                f"{self._mlflow_run_id}. {repr(e)}"
-            )
-        assert self.RUN_COMMAND_ID_KEY in self._mlflow_run.data.tags, (
-            f"{self.RUN_COMMAND_ID_KEY} not found in the tags of MLflow "
-            f"run with id {self._mlflow_run_id}."
-        )
-        run_command_id = self._mlflow_run.data.tags[self.RUN_COMMAND_ID_KEY]
-        registry = Registry.from_yaml(path)
-        return RunCommand.from_registry(registry, run_command_id)
-
-    def get_artifacts_dir_path(self) -> Path:
-        artifacts_uri = urlparse(self._mlflow_run.info.artifact_uri)
-        if artifacts_uri.scheme != "file":
-            raise Exception(f"Non-local artifacts path: {artifacts_uri}")
-        return Path(artifacts_uri.path).absolute()
-
-    def _get_artifact_paths(self) -> Sequence[Path]:
-        artifacts_dir = self.get_artifacts_dir_path()
-        artifact_paths = [
-            Path(artifacts_dir) / a.path for a in self.list_artifacts()
-        ]
-        exist = [p.exists() for p in artifact_paths]
-        assert all(exist), f"Missing artifact paths: {artifact_paths}, {exist}"
-        return artifact_paths
-
-    def print_status(self, detailed: bool = False) -> None:
-        if not detailed:
-            filtered_tags = {
-                k: v
-                for k, v in self.data.tags.items()
-                if not k.startswith("mlflow.")
-            }
-            print(f"\tRun {self.identifier}: {filtered_tags}")
-        else:
-            pprint.pprint(self.to_spec())
-
-    @classmethod
-    def from_registry(
-        cls,
-        registry: Registry,
-        run_id: RunIdentifier,
-    ) -> "Run":
-        # TODO figure out a way to deserialize an MLflowRun from the registry
-        #     and reconcile that with what is in the tracking store.
-        # run_spec = registry.get_run_spec(run_id)
-        raise NotImplementedError
-
-    @classmethod
-    def from_tracking_store(
-        cls,
-        run_id: RunIdentifier,
-    ):
-        try:
-            run = cls.from_existing_run_id(run_id)
-        except MlflowException as e:
-            raise MlflowException(
-                f"Creating a new MLflowRun (with id {run_id}) "
-                "to back this Run object since MLflow was unable to "
-                "retrieve the MLflowRun that was used in the Run that "
-                f"we are loading from the registry (id: {run_id}). Use the "
-                "fail_on_mlflow_run_not_found arg to raise an exception "
-                "instead." + e
-            )
-        return run
-
-    def to_registry(
-        self,
-        registry: Registry = None,
-        recurse: bool = True,
-        force: bool = False,
-        include_artifacts: bool = False,
-    ) -> Registry:
-        if not registry:
-            from agentos.registry import InMemoryRegistry
-
-            registry = InMemoryRegistry()
-        registry.add_run_spec(self.to_spec())
-        # If we are writing to a WebRegistry, have local artifacts, and
-        # include_artifacts is True, try uploading the artifact files to the
-        # registry.
-        if (
-            include_artifacts
-            and hasattr(registry, "add_run_artifacts")
-            and urlparse(self.info.artifact_uri).scheme == "file"
-        ):
-            local_artifact_path = self.get_artifacts_dir_path()
-            registry.add_run_artifacts(self.identifier, local_artifact_path)
-        if recurse:
-            self.run_command.to_registry(
-                registry, recurse=recurse, force=force
-            )
-        return registry
-
     @property
     def is_publishable(self) -> bool:
         # use like: filtered_tags["is_publishable"] = self.is_publishable
@@ -408,12 +414,11 @@ class Run:
             return False
 
     def to_spec(self, flatten: bool = False) -> RunSpec:
-        # TODO:
-        inner_spec = self._mlflow_run.to_dict()
+        inner_spec = super().to_spec()
         run_cmd = self.run_command.to_spec() if self.run_command else None
         inner_spec["run_command"] = run_cmd
         if flatten:
             inner_spec.update({RunSpec.identifier_key: self.identifier})
-            return
+            return inner_spec
         else:
-            {self.identifier: inner_spec}
+            return {self.identifier: inner_spec}

@@ -10,6 +10,12 @@ from typing import Optional
 
 
 class EvaluateCallback:
+    """
+    Used to log the data from a single evaluation run, which contains a set of
+    episodes. For each episode in the set, log the number of steps (into the
+    "current_lengths" sequence) and the reward (into the "current_rewards"
+    sequence).
+    """
     def __init__(self, run_manager: AgentRunManager):
         self.run_manager = run_manager
 
@@ -26,6 +32,16 @@ class EvaluateCallback:
 
 
 class LearnCallback(BaseCallback):
+    """
+    Overrides functionality in ``stable_baselines3.common.callbacks`` that
+    SB3's ``evaluate_policy()`` helper method uses to log stats, which is
+    used by an agent that depends on this run_manager.
+
+    This callback log the data from a single learning run, which contains a set
+    of episodes. For each episode in the set, log the number of steps (into the
+    "current_lengths" sequence) and the reward (into the "current_rewards"
+    sequence).
+    """
     def __init__(self, run_manager: AgentRunManager):
         super().__init__()
         self.run_manager = run_manager

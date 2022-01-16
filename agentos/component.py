@@ -217,6 +217,8 @@ class Component:
         run = Run.from_run_command(run_command)
         for c in self.dependency_list():
             c.active_run = run
+        # Note: get_instance() adds the dunder component attribute before
+        # calling __init__ on the instance.
         instance = self.get_instance(params=params)
         res = self.call_function_with_param_set(instance, entry_point, params)
         if log_return_value:
