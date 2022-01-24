@@ -12,8 +12,9 @@ from typing import Optional
 from collections import namedtuple
 from agentos.component import Component
 from agentos.run import Run
+from component_run import ComponentRun
 from agentos.registry import Registry
-
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 
 _EPISODE_KEY = "episode_count"
 _STEP_KEY = "step_count"
@@ -32,7 +33,7 @@ _RUN_STATS_MEMBERS = [
 RunStats = namedtuple("RunStats", _RUN_STATS_MEMBERS)
 
 
-class AgentRunManager:
+class AgentRun(Run):
     """
     A Component used to manage Agent training and evaluation runs.
 
@@ -48,6 +49,7 @@ class AgentRunManager:
               )
     """
 
+    IS_AGENT_RUN_TAG = "agentos.is_agent_run"
     LEARN_KEY = "learn"
     RESET_KEY = "reset"
     RESTORE_KEY = "restore"
@@ -56,56 +58,46 @@ class AgentRunManager:
     AGENT_NAME_KEY = "agent_name"
     ENV_NAME_KEY = "environment_name"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        run_type: str,
+        agent_name: Optional[str] = None,
+        environment_name: Optional[str] = None
+    ) -> None:
+        super().__init__()
+        self.set_tag(self.IS_AGENT_RUN_TAG, "True")
+        self.set_tag(MLFLOW_RUN_NAME, f"{run_type} (agent_run)")
+        self.parent_component_run = Run.active_run(
+            self, fail_if_no_active_run=False
+        )
+        self.set_tag(MLFLOW_PARENT_RUN_ID, self.parent_component_run.info.run_id)
         self.episode_data = []
-        self._active_run = Run.active_run(self)
-
-        def evaluate_run_manager(
-            agent_name: str = None, environment_name: str = None
-        ) -> RunContextManager:
-            return RunContextManager(
-                run_manager=self,
-                run_type=self.EVALUATE_KEY,
-                agent_name=agent_name,
-                environment_name=environment_name,
-            )
-
-        def learn_run_manager(
-            agent_name: str = None, environment_name: str = None
-        ) -> RunContextManager:
-            return RunContextManager(
-                run_manager=self,
-                run_type=self.LEARN_KEY,
-                agent_name=agent_name,
-                environment_name=environment_name,
-            )
-
-        self.evaluate_run = evaluate_run_manager
-        self.learn_run = learn_run_manager
-        self.run_type = None
+        self.run_type = run_type
+        self.agent_name = agent_name or "agent"
+        self.environment_name = environment_name or "environment"
+        self._check_component_exists_in_run(self.agent_name)
+        self._check_component_exists_in_run(self.environment_name)
 
     def log_run_type(self, run_type: str) -> None:
         self.run_type = run_type
-        self._active_run.set_tag(self.RUN_TYPE_TAG, self.run_type)
+        self.set_tag(self.RUN_TYPE_TAG, self.run_type)
 
     def log_agent_name(self, agent_name: str) -> None:
-        self._active_run.log_param(self.AGENT_NAME_KEY, agent_name)
+        self.log_param(self.AGENT_NAME_KEY, agent_name)
 
     def log_environment_name(self, environment_name: str) -> None:
-        self._active_run.log_param(self.ENV_NAME_KEY, environment_name)
-
-    def _log_run_type(self) -> None:
+        self.log_param(self.ENV_NAME_KEY, environment_name)
 
     def log_run_metrics(self):
         assert self.episode_data, "No episode data!"
         run_stats = self._get_run_stats()
         for key in _RUN_STATS_MEMBERS:
             val = getattr(run_stats, key)
-            self._active_run.log_metric(key, val)
+            self.log_metric(key, val)
 
     def get_training_info(self) -> (int, int):
         print("IN TRAINING INFO")
-        runs = self._active_run.get_all_runs()
+        runs = self.get_all_runs()
         print(type(runs))
         total_episodes = 0
         total_steps = 0
@@ -158,13 +150,11 @@ class AgentRunManager:
         print()
 
     def _get_run_stats(self):
-        run_id = Run.active_run(self, fail_if_no_active_run=True).identifier
-        run_data = [d for d in self.episode_data if d["active_run"] == run_id]
-        episode_lengths = [d["steps"] for d in run_data]
-        episode_returns = [d["reward"] for d in run_data]
+        episode_lengths = [d["steps"] for d in self.episode_data]
+        episode_returns = [d["reward"] for d in self.episode_data]
         training_episodes, training_steps = self.get_training_info()
         return RunStats(
-            episode_count=len(run_data),
+            episode_count=len(self.episode_data),
             step_count=sum(episode_lengths),
             max_reward=max(episode_returns),
             mean_reward=statistics.mean(episode_returns),
@@ -175,37 +165,17 @@ class AgentRunManager:
         )
 
     def add_episode_data(self, steps: int, reward: float):
+        print("adding episode data in agent run")
         self.episode_data.append(
             {
                 "steps": steps,
                 "reward": reward,
-                "active_run": Run.active_run(self).identifier,
             }
         )
 
-    def reset(self) -> None:
-        self.log_run_type(self.RESET_KEY)
-
-
-class RunContextManager:
-    def __init__(
-        self,
-        run_manager: AgentRunManager,
-        run_type: str,
-        agent_name: Optional[str],
-        environment_name: Optional[str],
-    ):
-        self.run_manager = run_manager
-        self.run_type = run_type
-        self.agent_name = agent_name or "agent"
-        self.environment_name = environment_name or "environment"
-        self._check_component_exists_in_run(self.agent_name)
-        self._check_component_exists_in_run(self.environment_name)
-
     def _check_component_exists_in_run(self, role_type: str) -> None:
-        run = Run.active_run(self.run_manager)
-        artifacts_dir = run.download_artifacts('.')
-        spec_path = Path(artifacts_dir) / Run.RUN_COMMAND_REGISTRY_FILENAME
+        artifacts_dir = self.parent_component_run.download_artifacts('.')
+        spec_path = Path(artifacts_dir) / ComponentRun.RUN_COMMAND_REGISTRY_FILENAME
         names = [
             Component.Identifier.from_str(c_id).name
             for c_id in Registry.from_yaml(spec_path)
@@ -219,15 +189,16 @@ class RunContextManager:
                 f"{expected_name}.  Run will not be publishable."
             )
             self.components_exist = False
-            Run.run_output.log_param(f"{role_type}_exists", False)
+            self.log_param(f"{role_type}_exists", False)
         else:
-            Run.run_output.log_param(f"{role_type}_exists", True)
+            self.log_param(f"{role_type}_exists", True)
 
-    def __enter__(self) -> None:
-        self.run_manager.log_run_type(self.run_type)
-        self.run_manager.log_agent_name(self.agent_name)
-        self.run_manager.log_environment_name(self.environment_name)
+    def __enter__(self) -> "AgentRun":
+        self.log_run_type(self.run_type)
+        self.log_agent_name(self.agent_name)
+        self.log_environment_name(self.environment_name)
+        return self
 
     def __exit__(self, type, value, traceback) -> None:
-        self.run_manager.log_run_metrics()
-        self.run_manager.print_results()
+        self.log_run_metrics()
+        self.print_results()

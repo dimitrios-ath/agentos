@@ -18,7 +18,6 @@ def test_cli_init(tmpdir):
             "policy.py",
             "dataset.py",
             "trainer.py",
-            "run_manager.py",
             "components.yaml",
         ]
         for expected_file_name in expected_file_names:

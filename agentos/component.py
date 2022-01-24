@@ -1,10 +1,12 @@
 import sys
 import uuid
 import importlib
-from typing import Union, TypeVar, Dict, Type, Any, Sequence
+from typing import Union, TypeVar, Dict, Type, Any, Sequence, Optional
 from rich import print as rich_print
 from rich.tree import Tree
-from agentos.run import Run, RunCommand
+from agentos.run import Run
+from agentos.run_command import RunCommand
+from agentos.component_run import ComponentRun
 from agentos.identifiers import ComponentIdentifier
 from agentos.specs import ComponentSpec, ComponentSpecKeys
 from agentos.registry import (
@@ -35,6 +37,7 @@ class Component:
         identifier: "Component.Identifier",
         class_name: str,
         file_path: str,
+        instantiate: Optional[bool] = True,
         dependencies: Dict = None,
         dunder_name: str = None,
     ):
@@ -42,16 +45,25 @@ class Component:
         :param managed_cls: The object this Component manages.
         :param repo: Where the code for this component's managed object is.
         :param identifier: Used to identify the Component.
+        :param class_name: The name of the class that is being managed.
+        :param file_path: The python module file where the managed class is
+            defined.
+        :param instantiate: Optional. If True, then get_object() return an
+            instance of the managed class; if False, it returns a class object.
         :param dependencies: List of other components that self depends on.
         :param dunder_name: Name used for the pointer to this Component on any
-                            instances of ``managed_cls`` created by this
-                            Component.
+            instances of ``managed_cls`` created by this Component.
         """
         self._managed_cls = managed_cls
         self.repo = repo
         self.identifier = identifier
         self.class_name = class_name
         self.file_path = file_path
+        if not class_name:
+            assert not instantiate, (
+                "instantiate can only be True if a class_name is provided"
+            )
+        self.instantiate = instantiate
         self.dependencies = dependencies if dependencies else {}
         self._dunder_name = dunder_name or "__component__"
         self._requirements = []
@@ -89,12 +101,15 @@ class Component:
             if repo_id not in repos.keys():
                 repo_spec = registry.get_repo_spec(repo_id)
                 repos[repo_id] = Repo.from_spec(repo_spec, registry.base_dir)
-            component = cls.from_repo(
-                repo=repos[repo_id],
-                identifier=component_id_from_spec,
-                class_name=component_spec["class_name"],
-                file_path=component_spec["file_path"],
-            )
+            from_repo_args = {
+                "repo": repos[repo_id],
+                "identifier": component_id_from_spec,
+                "class_name": component_spec["class_name"],
+                "file_path": component_spec["file_path"],
+            }
+            if "instantiate" in component_spec.keys():
+                from_repo_args["instantiate"] = component_spec["instantiate"]
+            component = cls.from_repo(**from_repo_args)
             components[component_id] = component
             dependencies[component_id] = component_spec.get("dependencies", {})
             for d_id in dependencies[component_id].values():
@@ -141,6 +156,7 @@ class Component:
         identifier: "Component.Identifier",
         class_name: str,
         file_path: str,
+        instantiate: bool = True,
         dunder_name: str = None,
     ) -> "Component":
         full_path = repo.get_local_file_path(identifier, file_path)
@@ -159,6 +175,7 @@ class Component:
             identifier=identifier,
             class_name=class_name,
             file_path=file_path,
+            instantiate=instantiate,
             dunder_name=dunder_name,
         )
 
@@ -214,12 +231,12 @@ class Component:
         else:
             params = ParameterSet()
         run_command = RunCommand(self, entry_point, params)
-        run = Run.from_run_command(run_command)
+        run = ComponentRun.from_run_command(run_command)
         for c in self.dependency_list():
             c.active_run = run
-        # Note: get_instance() adds the dunder component attribute before
+        # Note: get_object() adds the dunder component attribute before
         # calling __init__ on the instance.
-        instance = self.get_instance(params=params)
+        instance = self.get_object(params=params)
         res = self.call_function_with_param_set(instance, entry_point, params)
         if log_return_value:
             run.log_return_value(res, return_value_log_format)
@@ -247,28 +264,32 @@ class Component:
             attribute_name = component.name
         self.dependencies[attribute_name] = component
 
-    def get_instance(self, params: ParameterSet = None) -> T:
-        instantiated = {}
+    def get_object(self, params: ParameterSet = None) -> T:
+        collected = {}
         params = params if params else ParameterSet({})
-        return self._get_instance(params, instantiated)
+        return self._get_object(params, collected)
 
-    def _get_instance(self, params: ParameterSet, instantiated: dict) -> T:
-        if self.name in instantiated:
-            return instantiated[self.name]
-        save_init = self._managed_cls.__init__
-        self._managed_cls.__init__ = lambda self: None
-        instance = self._managed_cls()
+    def _get_object(self, params: ParameterSet, collected: dict) -> T:
+        if self.name in collected:
+            return collected[self.name]
+        if self.instantiate:
+            save_init = self._managed_cls.__init__
+            self._managed_cls.__init__ = lambda self: None
+            obj = self._managed_cls()
+        else:
+            obj = self._managed_cls
         for dep_attr_name, dep_component in self.dependencies.items():
             print(f"Adding {dep_attr_name} to {self.name}")
-            dep_instance = dep_component._get_instance(
-                params=params, instantiated=instantiated
+            dep_obj = dep_component._get_object(
+                params=params, collected=collected
             )
-            setattr(instance, dep_attr_name, dep_instance)
-        setattr(instance, self._dunder_name, self)
-        self._managed_cls.__init__ = save_init
-        self.call_function_with_param_set(instance, "__init__", params)
-        instantiated[self.name] = instance
-        return instance
+            setattr(obj, dep_attr_name, dep_obj)
+        setattr(obj, self._dunder_name, self)
+        if self.instantiate:
+            self._managed_cls.__init__ = save_init
+            self.call_function_with_param_set(obj, "__init__", params)
+        collected[self.name] = obj
+        return obj
 
     def _handle_repo_spec(self, repos):
         existing_repo = repos.get(self.repo.name)
@@ -294,6 +315,7 @@ class Component:
             identifier=new_identifier,
             class_name=self.class_name,
             file_path=prefixed_file_path,
+            instantiate=self.instantiate,
             dunder_name=self._dunder_name,
         )
         for attr_name, dependency in self.dependencies.items():

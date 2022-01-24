@@ -17,9 +17,11 @@ from agentos.parameter_set import ParameterSet
 from agentos.run import Run
 from agentos.run_command import RunCommand
 from agentos.specs import ComponentSpec, RepoSpec, ParameterSetSpec, RunSpec
+from agentos.agent_run import AgentRun
 
 __all__ = [
     "Agent",
+    "AgentRun",
     "Dataset",
     "Environment",
     "EnvironmentSpec",

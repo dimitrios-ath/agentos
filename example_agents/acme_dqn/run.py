@@ -3,13 +3,13 @@ import tempfile
 import shutil
 import tensorflow as tf
 from pathlib import Path
-from agentos.run_manager import AgentRunManager
+from agentos.agent_run import AgentRun
 from agentos.run import Run
 
 
 # Adheres to Acme Logger interface
 # https://github.com/deepmind/acme/blob/master/acme/utils/loggers/base.py
-class AcmeRunManager(AgentRunManager):
+class AcmeRun(AgentRun):
     # Acme logger API
     def write(self, data: dict):
         self.add_episode_data(

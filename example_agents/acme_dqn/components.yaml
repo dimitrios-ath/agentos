@@ -12,7 +12,7 @@ components:
         dependencies: 
             network: network
             environment: environment
-            run_manager: run_manager 
+            run_manager: run
     
     network:
         repo: local_dir
@@ -20,7 +20,7 @@ components:
         class_name: AcmeDQNNetwork
         dependencies: 
             environment: environment
-            run_manager: run_manager
+            run_manager: run
     
     environment:
         repo: local_dir
@@ -29,5 +29,5 @@ components:
     
     run_manager:
         repo: local_dir
-        file_path: ./run_manager.py
-        class_name: AcmeRunManager
+        file_path: ./run.py
+        class_name: AcmeRun

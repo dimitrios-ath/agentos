@@ -4,11 +4,9 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING, Sequence
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
-from mlflow.tracking.fluent import search_runs as search_mlflow_runs
 from agentos.registry import Registry
 from agentos.exceptions import PythonComponentSystemException
 from agentos.specs import RunSpec
-from agentos.run_command import RunCommand
 from agentos.identifiers import RunIdentifier
 
 if TYPE_CHECKING:
@@ -39,9 +37,10 @@ class Run:
     - Entry point string -> MLflow run tag (MlflowRun.data.tags entry)
     - ParameterSet -> artifact yaml file.
     """
+    _mlflow_client = MlflowClient()
 
     DEFAULT_EXPERIMENT_ID = "0"
-    AGENTOS_RUN_TAG = "agentos.run"
+    PCS_RUN_TAG = "pcs.is_run"
     # Pass calls to the following functions through to this
     # Run's mlflow_client. All of these take run_id as
     # first arg, and so the pass-through logic also binds
@@ -50,6 +49,7 @@ class Run:
         "log",
         "set_tag",
         "list_artifacts",
+        "search_runs",
         "download_artifacts",
     ]
 
@@ -66,7 +66,6 @@ class Run:
         :param experiment_id: Optional Experiment ID.
         :param existing_run_id: Optional Run ID.
         """
-        self._mlflow_client = MlflowClient()
         self._return_value = None
         if existing_run_id:
             assert not experiment_id, (
@@ -90,24 +89,23 @@ class Run:
                 exp_id = self.DEFAULT_EXPERIMENT_ID
             new_run = self._mlflow_client.create_run(exp_id)
             self._mlflow_run_id = new_run.info.run_id
-            self.set_tag(self.AGENTOS_RUN_TAG, "True")
+            self.set_tag(self.PCS_RUN_TAG, "True")
 
     def __del__(self):
         self._mlflow_client.set_terminated(self._mlflow_run_id)
 
     @classmethod
     def get_all_runs(cls):
-        run_infos = search_mlflow_runs(
+        mlflow_runs = cls._mlflow_client.search_runs(
             experiment_ids=[cls.DEFAULT_EXPERIMENT_ID],
             order_by=["attribute.start_time DESC"],
-            filter_string=f'tag.{cls.AGENTOS_RUN_TAG} ILIKE "%"'
+            filter_string=f'tag.{cls.PCS_RUN_TAG} ILIKE "%"'
         )
-        print(f"{len(run_infos)} run infos")
-        print(run_infos)
+        print(f"{len(mlflow_runs)} mlflow_runs")
+        print(mlflow_runs)
         res = []
-        for run_id in run_infos.run_id:
-            print(str(run_id))
-            r = Run.from_existing_run_id(str(run_id))
+        for mlflow_run in mlflow_runs:
+            r = Run.from_existing_run_id(mlflow_run.info.run_id)
             print(r)
             res.append(r)
         return res
@@ -250,175 +248,3 @@ class Run:
 
     def to_spec(self, flatten: bool = False) -> RunSpec:
         return self._mlflow_run.to_dict()
-
-
-class ComponentRun(Run):
-    IS_FROZEN_KEY = "agentos.spec_is_frozen"
-    RUN_COMMAND_ID_KEY = "agentos.run_command_id"
-    RUN_COMMAND_REGISTRY_FILENAME = "agentos.run_command_registry.yaml"
-    """
-    A ComponentRun represents the execution of a specific entry point of a
-    specific Component with a specific parameter set.
-    """
-    def __init__(
-        self,
-        run_command: RunCommand = None,
-        experiment_id: str = None,
-        existing_run_id: str = None,
-    ) -> None:
-        super().__init__(
-            experiment_id=experiment_id,
-            existing_run_id=existing_run_id
-        )
-        assert not (run_command and existing_run_id), (
-            "`run_command` cannot be passed with `existing_run_id`."
-        )
-        self._run_command = None
-        if run_command:
-            self._run_command = self._fetch_run_command()
-            self.log_run_command(run_command)
-
-    @property
-    def run_command(self) -> "RunCommand":
-        return self._run_command
-
-    @property
-    def return_value(self) -> str:
-        return self._return_value
-
-    @property
-    def is_reproducible(self) -> bool:
-        return bool(self.run_command)
-
-    @classmethod
-    def from_run_command(
-        cls, run_command: RunCommand, experiment_id: str = None
-    ) -> "Run":
-        return cls(
-            run_command=run_command,
-            experiment_id=experiment_id
-        )
-
-    def to_registry(
-        self,
-        registry: Registry = None,
-        recurse: bool = True,
-        force: bool = False,
-        include_artifacts: bool = False,
-    ) -> Registry:
-        super().to_registry(registry)
-        if recurse:
-            self.run_command.to_registry(
-                registry, recurse=recurse, force=force
-            )
-
-    def _fetch_run_command(self) -> RunCommand:
-        try:
-            path = self.download_artifacts(self.RUN_COMMAND_REGISTRY_FILENAME)
-        except IOError as e:
-            raise IOError(
-                f"RunCommand registry artifact not found in Run with id "
-                f"{self._mlflow_run_id}. {repr(e)}"
-            )
-        assert self.RUN_COMMAND_ID_KEY in self._mlflow_run.data.tags, (
-            f"{self.RUN_COMMAND_ID_KEY} not found in the tags of MLflow "
-            f"run with id {self._mlflow_run_id}."
-        )
-        run_command_id = self._mlflow_run.data.tags[self.RUN_COMMAND_ID_KEY]
-        registry = Registry.from_yaml(path)
-        return RunCommand.from_registry(registry, run_command_id)
-
-    def log_run_command(self, run_command: RunCommand) -> None:
-        """
-        Log a Registry YAML file for the RunCommand of this run, including
-        the ParameterSet, entry_point (i.e., function name), component ID,
-        as well as the root component being run and its full
-        transitive dependency graph of other components as part of this Run.
-        This registry file will contain the component spec and repo spec for
-        each component in the root component's dependency graph. Note that a
-        Run object contains a component object and thus the root component's
-        full dependency graph of other components, and as such does not depend
-        on a Registry to provide reproducibility. Like a Component, a Run
-        (including its entry point, parameter_set, root component, and the root
-        component's full dependency graph) can be dumped into a Registry for
-        sharing purposes, which essentially normalizes the Run's root
-        component's dependency graph into flat component specs.
-        """
-        self._validate_no_run_command_logged()
-        self.set_tag(
-            self.RUN_COMMAND_ID_KEY, run_command.identifier
-        )
-        run_command_dict = run_command.to_registry().to_dict()
-        self.log_dict(run_command_dict, self.RUN_COMMAND_REGISTRY_FILENAME)
-
-    def _validate_no_run_command_logged(self):
-        assert self.RUN_COMMAND_ID_KEY not in self._mlflow_run.data.tags, (
-            f"{self.RUN_COMMAND_ID_KEY} already found tags of MLflow run "
-            f"with id {self._mlflow_run_id}. A run_command can only be logged "
-            "once per a Run."
-        )
-        artifact_paths = [a.path for a in self.list_artifacts()]
-        assert self.RUN_COMMAND_REGISTRY_FILENAME not in artifact_paths, (
-            f"An artifact with name {self.RUN_COMMAND_REGISTRY_FILENAME} "
-            "has already been logged to the MLflow run with id "
-            f"{self._mlflow_run_id}. A run_command can only be logged "
-            "once per a Run."
-        )
-
-    def log_return_value(
-        self,
-        ret_val: Any,
-        format: str = "pickle",
-    ):
-        """
-        Logs the return value of an entry_point run using the specified
-        serialization format.
-
-        :param ret_val: The Python object returned by this Run to be logged.
-        :param format: Valid values are 'pickle, 'json', or 'yaml'.
-        """
-        assert not self._return_value, (
-            "return_value has already been logged and can only be logged once."
-        )
-        self._return_value = ret_val
-        filename_base = self.identifier + "-return_value"
-        if format == "pickle":
-            import pickle
-
-            filename = filename_base + ".pickle"
-            with open(filename, "wb") as f:
-                pickle.dump(ret_val, f)
-        elif format == "json":
-            import json
-
-            filename = filename_base + ".json"
-            with open(filename, "w") as f:
-                json.dump(ret_val, f)
-        elif format == "yaml":
-            import yaml
-
-            filename = filename_base + ".yaml"
-            with open(filename, "w") as f:
-                yaml.dump(ret_val, f)
-        else:
-            raise PythonComponentSystemException("Invalid format provided")
-        self.log_artifact(filename)
-        Path(filename).unlink(missing_ok=True)
-
-    @property
-    def is_publishable(self) -> bool:
-        # use like: filtered_tags["is_publishable"] = self.is_publishable
-        try:
-            return self._mlflow_run.data.tags[self.IS_FROZEN_KEY] == "True"
-        except KeyError:
-            return False
-
-    def to_spec(self, flatten: bool = False) -> RunSpec:
-        inner_spec = super().to_spec()
-        run_cmd = self.run_command.to_spec() if self.run_command else None
-        inner_spec["run_command"] = run_cmd
-        if flatten:
-            inner_spec.update({RunSpec.identifier_key: self.identifier})
-            return inner_spec
-        else:
-            return {self.identifier: inner_spec}
