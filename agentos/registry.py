@@ -59,6 +59,10 @@ class Registry(abc.ABC):
     def to_dict(self) -> Dict:
         raise NotImplementedError
 
+    def to_yaml(self, filename: str) -> None:
+        with open(filename, "w") as file:
+            yaml.dump(self.to_dict(), file)
+
     @abc.abstractmethod
     def get_component_specs(
         self, filter_by_name: str = None, filter_by_version: str = None

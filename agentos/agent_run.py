@@ -12,7 +12,7 @@ from typing import Optional
 from collections import namedtuple
 from agentos.component import Component
 from agentos.run import Run
-from component_run import ComponentRun
+from agentos.component_run import ComponentRun
 from agentos.registry import Registry
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 

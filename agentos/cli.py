@@ -212,8 +212,8 @@ def freeze(component_name, registry_file, force):
         * There are no uncommitted changes in the local repo
     """
     component = Component.from_registry_file(registry_file, component_name)
-    frozen_spec = component.to_frozen_registry(force=force).to_spec()
-    print(yaml.dump(frozen_spec))
+    frozen_reg = component.to_frozen_registry(force=force)
+    print(yaml.dump(frozen_reg.to_dict()))
 
 
 @agentos_cmd.command()
@@ -283,7 +283,6 @@ _ENV_DEF_FILE = Path("./templates/environment.py")
 _DATASET_DEF_FILE = Path("./templates/dataset.py")
 _TRAINER_DEF_FILE = Path("./templates/trainer.py")
 _POLICY_DEF_FILE = Path("./templates/policy.py")
-_RUN_MANAGER_DEF_FILE = Path("./templates/run_manager.py")
 _AGENT_YAML_FILE = Path("./templates/components.yaml")
 
 
@@ -293,7 +292,6 @@ _INIT_FILES = [
     _POLICY_DEF_FILE,
     _DATASET_DEF_FILE,
     _TRAINER_DEF_FILE,
-    _RUN_MANAGER_DEF_FILE,
     _AGENT_YAML_FILE,
 ]
 

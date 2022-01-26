@@ -26,7 +26,6 @@ T = TypeVar("T")
 class RepoType(Enum):
     LOCAL = "local"
     GITHUB = "github"
-    IN_MEMORY = "in_memory"
 
 
 class Repo(abc.ABC):
@@ -53,11 +52,9 @@ class Repo(abc.ABC):
                     base_dir
                 ), "The `base_dir` arg is required for local repos."
                 path = Path(base_dir) / inner_spec["path"]
-                return LocalRepo(identifier=identifier, file_path=path)
+                return LocalRepo(identifier=identifier, local_dir=path)
             elif repo_type == RepoType.GITHUB.value:
                 return GitHubRepo(identifier=identifier, url=inner_spec["url"])
-            elif repo_type == RepoType.IN_MEMORY.value:
-                return InMemoryRepo()
         raise PythonComponentSystemException(
             f"Unknown repo spec type '{repo_type} in repo {identifier}"
         )
@@ -80,13 +77,11 @@ class Repo(abc.ABC):
             return {self.identifier: inner}
 
     @abc.abstractmethod
-    def get_local_repo_path(self, version: str) -> Path:
+    def get_local_repo_dir(self, version: str) -> Path:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_local_file_path(
-        self, identifier: ComponentIdentifier, file_path: str
-    ) -> Path:
+    def get_local_file_path(self, version: str, file_path: str) -> Path:
         raise NotImplementedError()
 
     def get_version_from_git(
@@ -109,7 +104,9 @@ class Repo(abc.ABC):
 
         If ''force'' is True, checks 2, 3, and 4 above are ignored.
         """
-        full_path = self.get_local_file_path(component_identifier, file_path)
+        full_path = self.get_local_file_path(
+            component_identifier.version, file_path
+        )
         assert full_path.exists(), f"Path {full_path} does not exist"
         try:
             self.porcelain_repo = PorcelainRepo.discover(full_path)
@@ -234,7 +231,7 @@ class Repo(abc.ABC):
         baz/my_component.py
         ```
         """
-        full_path = self.get_local_file_path(identifier, file_path)
+        full_path = self.get_local_file_path(identifier.version, file_path)
         name = full_path.name
         curr_path = full_path.parent
         path_prefix = Path()
@@ -269,16 +266,14 @@ class GitHubRepo(Repo):
         }
         return self.optionally_flatten_spec(inner, flatten)
 
-    def get_local_repo_path(self, version: str) -> Path:
+    def get_local_repo_dir(self, version: str) -> Path:
         local_repo_path = self._clone_repo(version)
         self._checkout_version(local_repo_path, version)
         sys.stdout.flush()
         return local_repo_path
 
-    def get_local_file_path(
-        self, identifier: ComponentIdentifier, file_path: str
-    ) -> Path:
-        local_repo_path = self.get_local_repo_path(identifier.version)
+    def get_local_file_path(self, version: str, file_path: str) -> Path:
+        local_repo_path = self.get_local_repo_dir(version)
         return (local_repo_path / file_path).absolute()
 
     def _clone_repo(self, version: str) -> Path:
@@ -312,48 +307,56 @@ class GitHubRepo(Repo):
         os.chdir(curr_dir)
 
 
+# TODO: Convert LocalRepo to GitRepo and make GitHubRepo a subclass of it
+#       So that under the hood all local repos are seamlessly versioned
+#       and publishing any component can be super seamless by easily
+#       converting a GitRepo to some default GitHubRepo where anything that
+#       a user wants to share can be pushed, perhaps something like
+#       github.com/my_username/pcs_repo.
 class LocalRepo(Repo):
     """
     A Component with a LocalRepo can be found on your local drive.
     """
 
-    def __init__(self, identifier: str, file_path: Union[Path, str]):
+    def __init__(self, identifier: str, local_dir: Union[Path, str] = None):
         super().__init__(identifier)
+        if not local_dir:
+            # TODO: check for a global .pcsconfig that defines a default
+            #      location for a local repo, which will be used to
+            #      write source files created by Component.from_class with
+            #      classes that are defined in the REPL.
+            # NOTE: We do not use utils.AOS_CACHE_DIR here since this
+            #       is not a cache of a remote git repo, rather it is a local
+            #       repo that may be the only copy in existence.
+            local_dir = "./.pcs_local_repo"
         self.type = RepoType.LOCAL
-        self.file_path = Path(file_path).absolute()
+        self.local_dir = Path(local_dir).absolute()
+        if self.local_dir.exists():
+            assert self.local_dir.is_dir()
+            print(
+                f"Confirmed local_dir {self.local_dir} for "
+                f"LocalRepo {self.identifier} exists and is a dir."
+            )
+        else:
+            self.local_dir.mkdir(parents=True, exist_ok=True)
+            print(
+                f"Created local_dir {self.local_dir} for "
+                f"LocalRepo {self.identifier}."
+            )
 
     def to_spec(self, flatten: bool = False) -> RepoSpec:
         inner = {
             RepoSpecKeys.TYPE: self.type.value,
-            RepoSpecKeys.PATH: str(self.file_path),
+            RepoSpecKeys.PATH: str(self.local_dir),
         }
         return self.optionally_flatten_spec(inner, flatten)
 
-    def get_local_repo_path(self, version: str) -> Path:
-        return self.file_path
+    def get_local_repo_dir(self, version: str = None) -> Path:
+        assert version is None, "LocalRepos don't support versioning."
+        return self.local_dir
 
-    def get_local_file_path(
-        self, identifier: ComponentIdentifier, file_path: str
-    ) -> Path:
-        return self.file_path / file_path
-
-
-class InMemoryRepo(Repo):
-    """
-    A Component with a InMemoryRepo was created from a class that was
-    already loaded into Python.
-    """
-
-    def __init__(self, identifier: str = "in_memory"):
-        super().__init__(identifier)
-        self.type = RepoType.IN_MEMORY
-
-    def get_local_file_path(self, *args, **kwargs):
-        raise NoLocalPathException()
-
-    def get_local_repo_path(self, *args, **kwargs):
-        raise NoLocalPathException()
-
-    def to_spec(self, flatten: bool = False) -> RepoSpec:
-        inner = {RepoSpecKeys.TYPE: self.type.value}
-        return self.optionally_flatten_spec(inner, flatten)
+    def get_local_file_path(self, version: str, relative_path: str) -> Path:
+        assert version is None, (
+            "Components in a LocalRepo are not (and cannot be) versioned."
+        )
+        return self.local_dir / relative_path

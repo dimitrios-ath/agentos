@@ -1,6 +1,8 @@
 import sys
 import uuid
 import importlib
+from pathlib import Path
+from dill.source import getsource as dill_getsource
 from typing import Union, TypeVar, Dict, Type, Any, Sequence, Optional
 from rich import print as rich_print
 from rich.tree import Tree
@@ -14,7 +16,7 @@ from agentos.registry import (
     InMemoryRegistry,
 )
 from agentos.exceptions import RegistryException
-from agentos.repo import Repo, InMemoryRepo, GitHubRepo
+from agentos.repo import Repo, LocalRepo, GitHubRepo
 from agentos.parameter_set import ParameterSet
 
 # Use Python generics (https://mypy.readthedocs.io/en/stable/generics.html)
@@ -138,14 +140,38 @@ class Component:
         managed_cls: Type[T],
         name: str = None,
         dunder_name: str = None,
+        instantiate: bool = True,
     ) -> "Component":
         name = name if name else managed_cls.__name__
+        if managed_cls.__module__ == "__main__": # handle classes defined in REPL.
+            repo = LocalRepo(name)
+            src_file = repo.get_local_repo_dir() / f"{name}.py"
+            with open(src_file, "w") as f:
+                f.write(dill_getsource(managed_cls))
+            print(f"Wrote new source file {src_file}.")
+        else:
+            managed_cls_module = sys.modules[managed_cls.__module__]
+            assert hasattr(managed_cls_module, managed_cls.__name__), (
+                "Components can only be created from classes that are "
+                "available as an attribute of their module."
+            )
+            src_file = Path(managed_cls_module.__file__)
+            print(
+                f"handling managed_cls {managed_cls.__name__} from existing "
+                f"source file {src_file}. dir(managed_cls): \n"
+            )
+            repo = LocalRepo(f"{name}_repo", local_dir=src_file.parent)
+            print(
+                f"Created LocalRepo {repo.identifier} from existing source "
+                f"file {src_file}."
+            )
         return cls(
             managed_cls=managed_cls,
-            repo=InMemoryRepo(),
+            repo=repo,
             identifier=Component.Identifier(name),
             class_name=managed_cls.__name__,
-            file_path=".",
+            file_path=src_file.name,
+            instantiate=instantiate,
             dunder_name=dunder_name,
         )
 
@@ -159,7 +185,7 @@ class Component:
         instantiate: bool = True,
         dunder_name: str = None,
     ) -> "Component":
-        full_path = repo.get_local_file_path(identifier, file_path)
+        full_path = repo.get_local_file_path(identifier.version, file_path)
         assert full_path.is_file(), f"{full_path} does not exist"
         sys.path.append(str(full_path.parent))
         spec = importlib.util.spec_from_file_location(
@@ -231,20 +257,20 @@ class Component:
         else:
             params = ParameterSet()
         run_command = RunCommand(self, entry_point, params)
-        run = ComponentRun.from_run_command(run_command)
-        for c in self.dependency_list():
-            c.active_run = run
-        # Note: get_object() adds the dunder component attribute before
-        # calling __init__ on the instance.
-        instance = self.get_object(params=params)
-        res = self.call_function_with_param_set(instance, entry_point, params)
-        if log_return_value:
-            run.log_return_value(res, return_value_log_format)
-        for c in self.dependency_list():
-            c.active_run = None
-        if publish_to:
-            run.to_registry(publish_to)
-        return run
+        with ComponentRun.from_run_command(run_command) as run:
+            for c in self.dependency_list():
+                c.active_run = run
+            # Note: get_object() adds the dunder component attribute before
+            # calling __init__ on the instance.
+            instance = self.get_object(params=params)
+            res = self.call_function_with_param_set(instance, entry_point, params)
+            if log_return_value:
+                run.log_return_value(res, return_value_log_format)
+            for c in self.dependency_list():
+                c.active_run = None
+            if publish_to:
+                run.to_registry(publish_to)
+            return run
 
     def call_function_with_param_set(
         self, instance: Any, function_name: str, param_set: ParameterSet
@@ -262,6 +288,10 @@ class Component:
             raise Exception("add_dependency() must be passed a Component")
         if attribute_name is None:
             attribute_name = component.name
+        assert attribute_name not in self.dependencies, (
+            f"{self.identifier} already has a dependency with attribute "
+            f"{attribute_name}. Please use a different attribute name."
+        )
         self.dependencies[attribute_name] = component
 
     def get_object(self, params: ParameterSet = None) -> T:
@@ -277,6 +307,7 @@ class Component:
             self._managed_cls.__init__ = lambda self: None
             obj = self._managed_cls()
         else:
+            print(f"getting {self._managed_cls} w/o instantiating ")
             obj = self._managed_cls
         for dep_attr_name, dep_component in self.dependencies.items():
             print(f"Adding {dep_attr_name} to {self.name}")

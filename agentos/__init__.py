@@ -12,6 +12,7 @@ from agentos.core import (
 )
 from agentos.registry import Registry
 from agentos.component import Component
+from agentos.component_run import ComponentRun
 from agentos.repo import Repo
 from agentos.parameter_set import ParameterSet
 from agentos.run import Run
@@ -33,6 +34,7 @@ __all__ = [
     "Repo",
     "ParameterSet",
     "Run",
+    "ComponentRun",
     "RunCommand",
     "ComponentSpec",
     "RepoSpec",

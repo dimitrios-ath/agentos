@@ -1,6 +1,6 @@
 """Core AgentOS classes."""
 from collections import namedtuple
-import statistics
+from agentos.agent_run import AgentRun
 import time
 from threading import Thread
 
@@ -57,18 +57,19 @@ class Agent(MemberInitializer):
         :returns: None
         """
         all_steps = []
-        for _ in range(int(num_episodes)):
-            steps = self.rollout(
-                should_learn=should_learn, max_transitions=max_transitions
-            )
-            all_steps.append(steps)
+        with AgentRun('evaluate') as run:
+            for _ in range(int(num_episodes)):
+                steps = self.rollout(
+                    should_learn=should_learn, max_transitions=max_transitions
+                )
+                all_steps.append(steps)
         print(f"print_stats is {print_stats}")
         if (
             print_stats != "False"
             and print_stats != "false"
             and print_stats != "f"
         ):
-            self._print_run_results(all_steps, backup_dst)
+            run.print_results()
 
     def learn(
         self,
@@ -107,9 +108,6 @@ class Agent(MemberInitializer):
                 print_stats=True,
             )
             total_episodes += run_size
-
-    def reset(self):
-        self.run_manager.reset()
 
     def advance(self):
         """Takes one action within the Environment as dictated by the Policy"""
@@ -152,30 +150,11 @@ class Agent(MemberInitializer):
             step_count += 1
             if should_learn:
                 self.trainer.improve(self.dataset, self.policy)
-        self.run_manager.add_episode_data(steps=step_count, reward=reward)
+        self.run.add_episode_data(steps=step_count, reward=reward)
         if should_learn:
             self.trainer.improve(self.dataset, self.policy)
         return step_count
 
-    def _print_run_results(self, all_steps, backup_dst):
-        if not all_steps:
-            return
-        mean = statistics.mean(all_steps)
-        median = statistics.median(all_steps)
-        total_episodes, total_steps = self.run_manager.get_training_info()
-        print()
-        print(f"Benchmark results after {len(all_steps)} rollouts:")
-        print(
-            "\tBenchmarked agent was trained on "
-            f"{total_steps} transitions over {total_episodes} episodes"
-        )
-        print(f"\tMax steps over {len(all_steps)} trials: {max(all_steps)}")
-        print(f"\tMean steps over {len(all_steps)} trials: {mean}")
-        print(f"\tMedian steps over {len(all_steps)} trials: {median}")
-        print(f"\tMin steps over {len(all_steps)} trials: {min(all_steps)}")
-        if backup_dst:
-            print(f"Agent backed up in {backup_dst}")
-        print()
 
 
 class Policy(MemberInitializer):

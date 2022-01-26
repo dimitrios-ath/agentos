@@ -7,7 +7,7 @@ from agentos.run import Run
 from agentos.run_command import RunCommand
 from agentos.registry import Registry
 from agentos.specs import RunSpec
-from exceptions import PythonComponentSystemException
+from agentos.exceptions import PythonComponentSystemException
 
 
 class ComponentRun(Run):
@@ -25,6 +25,9 @@ class ComponentRun(Run):
         experiment_id: str = None,
         existing_run_id: str = None,
     ) -> None:
+        assert run_command or existing_run_id, (
+            "One of 'run_command' or 'existing_run_id' must be provided."
+        )
         super().__init__(
             experiment_id=experiment_id,
             existing_run_id=existing_run_id
@@ -58,7 +61,7 @@ class ComponentRun(Run):
     @classmethod
     def from_run_command(
         cls, run_command: RunCommand, experiment_id: str = None
-    ) -> "Run":
+    ) -> "ComponentRun":
         return cls(
             run_command=run_command,
             experiment_id=experiment_id

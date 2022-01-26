@@ -1,13 +1,16 @@
+# Defined in module global namespaces since components cannot be
+# created from classes that are defined inside of functions.
+class Simple:
+    def __init__(self, x):
+        self._x = x
+
+    def fn(self, input):
+        return self._x, input
+
+
 def test_component_run():
     from agentos import ParameterSet, Component
     from agentos.registry import InMemoryRegistry
-
-    class Simple:
-        def __init__(self, x):
-            self._x = x
-
-        def fn(self, input):
-            return self._x, input
 
     params = ParameterSet(
         {"Simple": {"__init__": {"x": 1}, "fn": {"input": "hi"}}}

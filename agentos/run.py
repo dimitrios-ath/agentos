@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any, TYPE_CHECKING, Sequence
 from mlflow.exceptions import MlflowException
+from mlflow.entities import RunStatus
 from mlflow.tracking import MlflowClient
 from agentos.registry import Registry
 from agentos.exceptions import PythonComponentSystemException
@@ -50,6 +51,7 @@ class Run:
         "set_tag",
         "list_artifacts",
         "search_runs",
+        "set_terminated",
         "download_artifacts",
     ]
 
@@ -203,6 +205,14 @@ class Run:
         assert all(exist), f"Missing artifact paths: {artifact_paths}, {exist}"
         return artifact_paths
 
+    def end(
+        self, status: str = RunStatus.to_string(RunStatus.FINISHED)
+    ) -> None:
+        """
+        This is copied and adapted from MLflow's fluent api mlflow.end_run
+        """
+        self.set_terminated(status)
+
     def print_status(self, detailed: bool = False) -> None:
         if not detailed:
             filtered_tags = {
@@ -247,4 +257,14 @@ class Run:
         return registry
 
     def to_spec(self, flatten: bool = False) -> RunSpec:
-        return self._mlflow_run.to_dict()
+        return self._mlflow_run.to_dictionary()
+
+    def __enter__(self) -> "Run":
+        return self
+
+    def __exit__(self, type, value, traceback) -> None:
+        if type:
+            self.set_terminated(RunStatus.to_string(RunStatus.FAILED))
+            return
+        else:
+            self.end()
