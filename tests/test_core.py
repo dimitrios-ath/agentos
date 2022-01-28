@@ -29,8 +29,6 @@ def test_cli_init(tmpdir):
         run_test_command(run, cli_args=run_args, cli_kwargs=run_1_kwargs)
         run_2_kwargs = {"--entry-point": "learn"}
         run_test_command(run, cli_args=run_args, cli_kwargs=run_2_kwargs)
-        run_3_kwargs = {"--entry-point": "reset"}
-        run_test_command(run, cli_args=run_args, cli_kwargs=run_3_kwargs)
 
 
 def test_cli_run():

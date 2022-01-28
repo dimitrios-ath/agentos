@@ -97,6 +97,14 @@ class Run:
         self._mlflow_client.set_terminated(self._mlflow_run_id)
 
     @classmethod
+    def run_exists(cls, run_id) -> bool:
+        try:
+            cls._mlflow_client.get_run(run_id)
+            return True
+        except MlflowException:
+            return False
+
+    @classmethod
     def get_all_runs(cls):
         mlflow_runs = cls._mlflow_client.search_runs(
             experiment_ids=[cls.DEFAULT_EXPERIMENT_ID],
@@ -223,6 +231,14 @@ class Run:
             print(f"\tRun {self.identifier}: {filtered_tags}")
         else:
             pprint.pprint(self.to_spec())
+
+    @staticmethod
+    def print_all_status() -> None:
+        runs = Run.get_all_runs()
+        print("\nRuns:")
+        for run in runs:
+            run.print_status()
+        print()
 
     @classmethod
     def from_registry(

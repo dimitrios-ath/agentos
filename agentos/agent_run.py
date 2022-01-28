@@ -6,14 +6,10 @@ runs used by agents are Learning and Evaluation runs.
 The agent run manager also contains the logic for tracking the lineage of
 learning runs so that a model's training history is captured, and publishable.
 """
-from pathlib import Path
 import statistics
 from typing import Optional
 from collections import namedtuple
-from agentos.component import Component
 from agentos.run import Run
-from agentos.component_run import ComponentRun
-from agentos.registry import Registry
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 
 _EPISODE_KEY = "episode_count"
@@ -35,15 +31,16 @@ RunStats = namedtuple("RunStats", _RUN_STATS_MEMBERS)
 
 class AgentRun(Run):
     """
-    A Component used to manage Agent training and evaluation runs.
+    A run with functionality specific to runs of agents, such as
+    runs that evaluate the agent's performance in an environment,
+    or runs that train the agent in an environemnt.
 
-    Provides RunManagers, which are context managers that can be used
-    by agents when executing episodes as part of evaluation or learning
-    with something like:
+    Agents can use an AgentRun as a context manager when performing
+    these types of runs, for example:
 
-         with self.run_manager.evaluation_run as run_manager:
+         with AgentRun('evaluate', self.__component__.active_run) as run:
               # run an episode
-              run_manager.log_episode(
+              run.log_episode(
                     # episode_data
                     ...
               )
@@ -62,21 +59,19 @@ class AgentRun(Run):
         self,
         run_type: str,
         agent_name: Optional[str] = None,
-        environment_name: Optional[str] = None
+        environment_name: Optional[str] = None,
+        parent_run: str = None,
     ) -> None:
         super().__init__()
+        self.parent_run = parent_run
         self.set_tag(self.IS_AGENT_RUN_TAG, "True")
         self.set_tag(MLFLOW_RUN_NAME, f"{run_type} (agent_run)")
-        self.parent_component_run = Run.active_run(
-            self, fail_if_no_active_run=False
-        )
-        self.set_tag(MLFLOW_PARENT_RUN_ID, self.parent_component_run.info.run_id)
+        if self.parent_run:
+            self.set_tag(MLFLOW_PARENT_RUN_ID, self.parent_run.info.run_id)
         self.episode_data = []
         self.run_type = run_type
         self.agent_name = agent_name or "agent"
         self.environment_name = environment_name or "environment"
-        self._check_component_exists_in_run(self.agent_name)
-        self._check_component_exists_in_run(self.environment_name)
 
     def log_run_type(self, run_type: str) -> None:
         self.run_type = run_type
@@ -172,26 +167,6 @@ class AgentRun(Run):
                 "reward": reward,
             }
         )
-
-    def _check_component_exists_in_run(self, role_type: str) -> None:
-        artifacts_dir = self.parent_component_run.download_artifacts('.')
-        spec_path = Path(artifacts_dir) / ComponentRun.RUN_COMMAND_REGISTRY_FILENAME
-        names = [
-            Component.Identifier.from_str(c_id).name
-            for c_id in Registry.from_yaml(spec_path)
-            .get_component_specs()
-            .keys()
-        ]
-        expected_name = getattr(self, f"{role_type}_name")
-        if expected_name not in names:
-            print(
-                f"Warning: unknown {role_type.capitalize()} component: "
-                f"{expected_name}.  Run will not be publishable."
-            )
-            self.components_exist = False
-            self.log_param(f"{role_type}_exists", False)
-        else:
-            self.log_param(f"{role_type}_exists", True)
 
     def __enter__(self) -> "AgentRun":
         self.log_run_type(self.run_type)

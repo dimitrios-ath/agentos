@@ -356,7 +356,11 @@ class LocalRepo(Repo):
         return self.local_dir
 
     def get_local_file_path(self, version: str, relative_path: str) -> Path:
-        assert version is None, (
-            "Components in a LocalRepo are not (and cannot be) versioned."
-        )
+        if version is not None:
+            print(
+                "WARNING: version was passed into get_local_path() " 
+                "on a LocalRepo, which means it is being ignored. "
+                "If this is actually a versioned repo, use GithubRepo "
+                "or another versioned Repo type."
+            )
         return self.local_dir / relative_path

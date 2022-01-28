@@ -5,6 +5,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.callbacks import BaseCallback
 from agentos.agent_run import AgentRun
+from agentos import active_component_run
 from typing import Optional
 
 

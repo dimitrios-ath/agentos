@@ -1,14 +1,51 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-
-
 from agentos.run import Run
 from agentos.run_command import RunCommand
 from agentos.registry import Registry
 from agentos.specs import RunSpec
 from agentos.exceptions import PythonComponentSystemException
 
+
+def active_component_run(
+    caller: Any, fail_if_none: bool = False
+) -> Optional[Run]:
+    """
+    A helper function, returns the currently active ComponentRun, if it exists,
+    else None. More specifically, if the caller is an object that is managed by
+    a Component (i.e. if it has a __component__ attribute) that itself has an
+    active_run, return that Run.
+
+    :param caller: the managed object to fetch the active component run for.
+    :param fail_if_none: if no active component run found, throw an exception
+        instead of returning None.
+    :return: the active component run if it exists, else None.
+    """
+    from agentos.component import Component
+
+    if isinstance(caller, Component):
+        component = caller
+    else:
+        try:
+            component = caller.__component__
+        except AttributeError:
+            raise PythonComponentSystemException(
+                "active_run() was called on an object that is not "
+                "managed by a Component. Specifically, the object passed "
+                "to active_run() must have a ``__component__`` attribute."
+            )
+    if not component.active_run:
+        if fail_if_none:
+            raise PythonComponentSystemException(
+                "active_run() was passed an object managed by a Component "
+                "with no active_run, and fail_if_no_active_run flag was "
+                "True."
+            )
+        else:
+            return None
+    else:
+        return component.active_run
 
 class ComponentRun(Run):
     IS_FROZEN_KEY = "agentos.spec_is_frozen"

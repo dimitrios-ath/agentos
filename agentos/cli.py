@@ -172,13 +172,17 @@ def status(entity_id, registry_file):
     """
     ENTITY_ID can be a Component name or a Run ID.
     """
-    if Run.run_exists(entity_id):
-        Run.get_by_id(run_id=entity_id).print_status(detailed=True)
-    else:
+    print(f"entity_id is {entity_id}")
+    if not entity_id:
         Run.print_all_status()
-        if entity_id:
+    elif Run.run_exists(entity_id):
+        Run.from_existing_run_id(entity_id).print_status(detailed=True)
+    else:  # assume entity_id is a ComponentIdentifier
+        try:
             component = Component.from_registry_file(registry_file, entity_id)
             component.print_status_tree()
+        except LookupError:
+            print(f"No Run or component found with Identifier {entity_id}.")
 
 
 @agentos_cmd.command()
