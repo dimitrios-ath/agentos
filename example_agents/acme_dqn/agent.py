@@ -1,7 +1,7 @@
 import acme
 from acme.agents.tf import dqn
 import numpy as np
-
+from agentos import active_component_run
 
 class AcmeDQNAgent:
     DEFAULT_ENTRY_POINT = "evaluate"
@@ -18,7 +18,8 @@ class AcmeDQNAgent:
         )
 
     def evaluate(self, num_episodes):
-        with self.run(self.run.EVALUATE_KEY) as run:
+
+        with self.AcmeRun('evaluate', active_component_run()) as run:
             num_episodes = int(num_episodes)
             loop = acme.EnvironmentLoop(
                 self.environment,
@@ -29,7 +30,7 @@ class AcmeDQNAgent:
             loop.run(num_episodes=num_episodes)
 
     def learn(self, num_episodes):
-        with self.run(self.run.LEARN_KEY) as run:
+        with self.run('learn', active_component_run()) as run:
             num_episodes = int(num_episodes)
             loop = acme.EnvironmentLoop(
                 self.environment,
@@ -39,6 +40,3 @@ class AcmeDQNAgent:
             )
             loop.run(num_episodes=num_episodes)
             self.network.save()
-
-    def reset(self):
-        self.run.reset()

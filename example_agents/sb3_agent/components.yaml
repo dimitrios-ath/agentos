@@ -11,7 +11,7 @@ components:
         class_name: SB3PPOAgent
         dependencies: 
             environment: environment
-            AgentRun: SB3AgentRun
+            SB3AgentRun: SB3AgentRun
     
     environment:
         repo: sb3_agent_dir

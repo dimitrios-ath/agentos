@@ -3,7 +3,7 @@ import pytest
 from tests.utils import is_linux, RANDOM_AGENT_DIR, CHATBOT_AGENT_DIR
 from agentos.registry import Registry
 from agentos.component import Component
-from agentos.utils import DUMMY_WEB_REGISTRY_DICT
+from agentos.utils import generate_dummy_dev_registry
 from agentos import ParameterSet
 
 
@@ -67,27 +67,28 @@ def test_registry_integration(venv):
             }
         },
     }
-    registry = Registry.from_dict(DUMMY_WEB_REGISTRY_DICT)
+    registry = Registry.from_dict(generate_dummy_dev_registry())
     component = Component.from_registry(registry, "acme_r2d2_agent")
     param_set = ParameterSet(params)
     component.run("evaluate", param_set)
 
 
 def test_registry_from_dict():
-    from agentos.registry import Registry
-    from agentos.exceptions import RegistryException
-    from agentos.utils import DUMMY_WEB_REGISTRY_DICT
-    from agentos.component import Component
-    from agentos.parameter_set import ParameterSet
-
-    r = Registry.from_dict(DUMMY_WEB_REGISTRY_DICT)
+    reg_dict = generate_dummy_dev_registry('test_key')
+    reg_dict["components"]["acme_cartpole==master"] = {
+        "class_name": "CartPole",
+        "dependencies": {},
+        "repo": "dev_repo",
+    }
+    print(reg_dict)
+    r = Registry.from_dict(reg_dict)
 
     assert (
-        "acme_cartpole==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f"
+        "acme_cartpole==test_key"
         in r.get_component_specs().keys()
     )
     assert (
-        "acme_cartpole==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f"
+        "acme_cartpole==test_key"
         in r.get_component_specs(filter_by_name="acme_cartpole").keys()
     )
     assert (
@@ -99,25 +100,23 @@ def test_registry_from_dict():
         "acme_r2d2_agent", flatten=True
     )
     assert agent_component_flat_spec["name"] == "acme_r2d2_agent"
-    assert (
-        agent_component_flat_spec["version"]
-        == "fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f"
-    )
+    assert agent_component_flat_spec["version"] == "test_key"
     assert agent_component_flat_spec["class_name"] == "AcmeR2D2Agent"
-    assert agent_component_flat_spec["repo"] == "dev_repo"
+    assert agent_component_flat_spec["repo"] == "local_dir"
 
-    # Test retrieving a component from an InMemoryRegistry.
-    c = Component.from_registry(r, "random_agent")
-    assert c.name == "random_agent"
-    assert c.version == "for_tests_dummy_dev_registry"
-    assert c.identifier == "random_agent==for_tests_dummy_dev_registry"
-    assert "environment" in c.dependencies.keys()
+
+def test_registry_from_file():
+    from agentos.exceptions import RegistryException
+    from agentos.parameter_set import ParameterSet
+
+    r = Registry.from_yaml(RANDOM_AGENT_DIR / "components.yaml")
+    random_local_ag = Component.from_registry(r, "agent")
+    assert random_local_ag.name == "agent"
+    assert not random_local_ag.version
+    assert random_local_ag.identifier.full == "agent"
+    assert "environment" in random_local_ag.dependencies.keys()
     assert (
-        c.dependencies["environment"].identifier
-        == "random_corridor==for_tests_dummy_dev_registry"
-    )
-    random_local_ag = Component.from_registry(
-        Registry.from_yaml(RANDOM_AGENT_DIR / "components.yaml"), "agent"
+        random_local_ag.dependencies["environment"].identifier == "environment"
     )
     random_local_ag.run(
         "evaluate",

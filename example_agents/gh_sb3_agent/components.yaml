@@ -1,33 +1,33 @@
 repos:
     aos_github:
         type: github
-        url: https://github.com/nickjalbert/agentos.git
+        url: https://github.com/agentos/agentos.git
 
 
 components:
-    agent==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f:
+    agent==test_staging:
         repo: aos_github
         file_path: example_agents/sb3_agent/agent.py
         class_name: SB3PPOAgent
         dependencies: 
-            environment: environment==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f
-            run_manager: run_manager==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f
-            blah: agent==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f
+            environment: environment==test_staging
+            run_manager: run_manager==test_staging
+            blah: agent==test_staging
 
-    agent==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f:
+    agent==test_staging:
         repo: aos_github
         file_path: example_agents/sb3_agent/agent.py
         class_name: SB3PPOAgent
         dependencies: 
-            environment: environment==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f
-            run_manager: run_manager==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f
+            environment: environment==test_staging
+            run_manager: run_manager==test_staging
    
-    environment==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f:
+    environment==test_staging:
         repo: aos_github
         file_path: example_agents/sb3_agent/environment.py
         class_name: CartPole
     
-    run_manager==fe150c5ea8ee6e2e6c1dbbfc85cb53b85f19c55f:
+    run_manager==test_staging:
         repo: aos_github
         file_path: example_agents/sb3_agent/run_manager.py
         class_name: SB3RunManager

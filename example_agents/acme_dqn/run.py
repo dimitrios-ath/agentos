@@ -22,7 +22,6 @@ class AcmeRun(AgentRun):
         pass
 
     def save_tensorflow(self, name: str, network: tf.Module):
-        assert mlflow.active_run() is not None
         dir_path = Path(tempfile.mkdtemp())
         checkpoint = tf.train.Checkpoint(module=network)
         checkpoint.save(dir_path / name / name)

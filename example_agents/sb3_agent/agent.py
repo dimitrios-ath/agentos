@@ -27,7 +27,9 @@ class SB3PPOAgent:
         return_episode_rewards=False,
         warn=True,
     ):
-        with self.SB3AgentRun('evaluate', self.active_run) as eval_run:
+        with self.SB3AgentRun(
+            run_type='evaluate', parent_run=self.active_run
+        ) as eval_run:
             evaluate_policy(
                 model=self.sb3_ppo,
                 env=self.sb3_ppo.get_env(),

@@ -80,11 +80,14 @@ class SB3Run(AgentRun):
     """
     SB3_RUN_TAG_KEY = "sb3_agent_run"
 
-    def __init__(self, *args, **kwargs):
-        assert "run_type" in kwargs.keys(), (
-            "type must be provided to SB3Run.__init__()."
-        )
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        run_type: str,
+        parent_run: str = None,
+        agent_name: Optional[str] = None,
+        environment_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(run_type, agent_name, environment_name, parent_run)
         self.evaluate_callback = EvaluateCallback(self)
         self.learn_callback = LearnCallback(self)
         self.set_tag(self.SB3_RUN_TAG_KEY, "True")

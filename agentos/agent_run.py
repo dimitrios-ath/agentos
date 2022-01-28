@@ -32,8 +32,8 @@ RunStats = namedtuple("RunStats", _RUN_STATS_MEMBERS)
 class AgentRun(Run):
     """
     A run with functionality specific to runs of agents, such as
-    runs that evaluate the agent's performance in an environment,
-    or runs that train the agent in an environemnt.
+    runs that *evaluate* the agent's performance in an environment,
+    or runs that cause the agent to *learn* in an environment.
 
     Agents can use an AgentRun as a context manager when performing
     these types of runs, for example:
@@ -58,9 +58,9 @@ class AgentRun(Run):
     def __init__(
         self,
         run_type: str,
+        parent_run: str = None,
         agent_name: Optional[str] = None,
         environment_name: Optional[str] = None,
-        parent_run: str = None,
     ) -> None:
         super().__init__()
         self.parent_run = parent_run
