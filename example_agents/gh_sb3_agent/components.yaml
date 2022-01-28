@@ -20,7 +20,7 @@ components:
         class_name: SB3PPOAgent
         dependencies: 
             environment: environment==test_staging
-            run_manager: SB3AgentRun==test_staging
+            SB3AgentRun: SB3AgentRun==test_staging
 
     environment==test_staging:
         repo: aos_github
