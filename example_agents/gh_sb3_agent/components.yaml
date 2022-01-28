@@ -11,7 +11,7 @@ components:
         class_name: SB3PPOAgent
         dependencies: 
             environment: environment==test_staging
-            run_manager: SB3AgentRun==test_staging
+            SB3AgentRun: SB3AgentRun==test_staging
             blah: agent==test_staging
 
     agent==test_staging:
