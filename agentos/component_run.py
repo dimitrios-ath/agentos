@@ -204,7 +204,7 @@ class ComponentRun(Run):
         else:
             raise PythonComponentSystemException("Invalid format provided")
         self.log_artifact(filename)
-        Path(filename).unlink(missing_ok=True)
+        Path(filename).unlink()
 
     @property
     def is_publishable(self) -> bool:
