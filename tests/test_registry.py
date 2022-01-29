@@ -80,7 +80,6 @@ def test_registry_from_dict():
         "dependencies": {},
         "repo": "dev_repo",
     }
-    print(reg_dict)
     r = Registry.from_dict(reg_dict)
 
     assert "acme_cartpole==test_key" in r.get_component_specs().keys()

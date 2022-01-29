@@ -20,7 +20,7 @@ components:
         class_name: AcmeDQNNetwork
         dependencies: 
             environment: environment
-            run_manager: run
+            AcmeRun: AcmeRun
     
     environment:
         repo: local_dir

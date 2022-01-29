@@ -21,15 +21,16 @@ class AcmeRun(AgentRun):
     def close(self):
         pass
 
-    def save_tensorflow(self, name: str, network: tf.Module):
+    @staticmethod
+    def save_tensorflow(name: str, network: tf.Module):
         dir_path = Path(tempfile.mkdtemp())
         checkpoint = tf.train.Checkpoint(module=network)
         checkpoint.save(dir_path / name / name)
         mlflow.log_artifact(dir_path / name)
         shutil.rmtree(dir_path)
 
-    # TODO - port me to new Run
-    def restore_tensorflow(self, name: str, network: tf.Module) -> None:
+    @classmethod
+    def restore_tensorflow(cls, name: str, network: tf.Module) -> None:
         runs = Run.get_all_runs()
         for run in runs:
             artifacts_uri = run.info.artifact_uri
@@ -43,8 +44,8 @@ class AcmeRun(AgentRun):
                 latest = tf.train.latest_checkpoint(save_path)
                 if latest is not None:
                     checkpoint.restore(latest)
-                    self.save_tensorflow(name, network)
+                    cls.save_tensorflow(name, network)
                     print(f"AcmeRunManager: Restored Tensorflow model {name}.")
                     return
-        self.save_tensorflow(name, network)
+        cls.save_tensorflow(name, network)
         print(f"AcmeRunManager: No saved Tensorflow model {name} found.")
