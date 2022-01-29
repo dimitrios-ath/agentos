@@ -3,7 +3,6 @@ from collections import namedtuple
 from agentos.agent_run import AgentRun
 import time
 from threading import Thread
-from agentos.component_run import ComponentRun
 
 
 class MemberInitializer:
@@ -70,7 +69,7 @@ class Agent(MemberInitializer):
         :returns: None
         """
         all_steps = []
-        self.start_agent_run('evaluate', parent_run)
+        self.start_agent_run("evaluate", parent_run)
         for _ in range(int(num_episodes)):
             steps = self.rollout(
                 should_learn=should_learn, max_transitions=max_transitions
@@ -126,6 +125,7 @@ class Agent(MemberInitializer):
 
     def start_agent_run(self, run_type: str, parent: AgentRun) -> None:
         from agentos import active_component_run  # avoid circular import
+
         if not parent:
             parent = active_component_run(self)
             if parent:
@@ -137,10 +137,7 @@ class Agent(MemberInitializer):
                     "list of the active component run."
                 )
         self._active_agent_run_stack.append(
-            AgentRun(
-                run_type,
-                parent_run=parent
-            )
+            AgentRun(run_type, parent_run=parent)
         )
 
     def end_agent_run(self):

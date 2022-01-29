@@ -57,9 +57,9 @@ class ParameterSet:
 
     @classmethod
     def from_spec(cls, param_set_spec: ParameterSetSpec) -> "ParameterSet":
-        assert(len(param_set_spec) == 1), (
-            "param_set_spec must be a dict with a single key-value pair"
-        )
+        assert (
+            len(param_set_spec) == 1
+        ), "param_set_spec must be a dict with a single key-value pair"
         param_set_spec_id, inner_param_set = None, None
         for key, value in param_set_spec.items():
             param_set_spec_id = key

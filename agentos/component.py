@@ -62,9 +62,9 @@ class Component:
         self.class_name = class_name
         self.file_path = file_path
         if not class_name:
-            assert not instantiate, (
-                "instantiate can only be True if a class_name is provided"
-            )
+            assert (
+                not instantiate
+            ), "instantiate can only be True if a class_name is provided"
         self.instantiate = instantiate
         self.dependencies = dependencies if dependencies else {}
         self._dunder_name = dunder_name or "__component__"
@@ -143,7 +143,9 @@ class Component:
         instantiate: bool = True,
     ) -> "Component":
         name = name if name else managed_cls.__name__
-        if managed_cls.__module__ == "__main__": # handle classes defined in REPL.
+        if (
+            managed_cls.__module__ == "__main__"
+        ):  # handle classes defined in REPL.
             repo = LocalRepo(name)
             src_file = repo.get_local_repo_dir() / f"{name}.py"
             with open(src_file, "w") as f:
@@ -263,7 +265,9 @@ class Component:
             # Note: get_object() adds the dunder component attribute before
             # calling __init__ on the instance.
             instance = self.get_object(params=params)
-            res = self.call_function_with_param_set(instance, entry_point, params)
+            res = self.call_function_with_param_set(
+                instance, entry_point, params
+            )
             if log_return_value:
                 run.log_return_value(res, return_value_log_format)
             for c in self.dependency_list():

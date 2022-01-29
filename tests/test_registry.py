@@ -74,7 +74,7 @@ def test_registry_integration(venv):
 
 
 def test_registry_from_dict():
-    reg_dict = generate_dummy_dev_registry('test_key')
+    reg_dict = generate_dummy_dev_registry("test_key")
     reg_dict["components"]["acme_cartpole==master"] = {
         "class_name": "CartPole",
         "dependencies": {},
@@ -83,10 +83,7 @@ def test_registry_from_dict():
     print(reg_dict)
     r = Registry.from_dict(reg_dict)
 
-    assert (
-        "acme_cartpole==test_key"
-        in r.get_component_specs().keys()
-    )
+    assert "acme_cartpole==test_key" in r.get_component_specs().keys()
     assert (
         "acme_cartpole==test_key"
         in r.get_component_specs(filter_by_name="acme_cartpole").keys()

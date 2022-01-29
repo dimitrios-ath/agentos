@@ -5,7 +5,6 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.callbacks import BaseCallback
 from agentos.agent_run import AgentRun
-from agentos import active_component_run
 from typing import Optional
 
 
@@ -16,6 +15,7 @@ class EvaluateCallback:
     "current_lengths" sequence) and the reward (into the "current_rewards"
     sequence).
     """
+
     def __init__(self, agent_run: AgentRun):
         self.agent_run = agent_run
 
@@ -42,6 +42,7 @@ class LearnCallback(BaseCallback):
     the "current_lengths" sequence) and the reward (into the "current_rewards"
     sequence).
     """
+
     def __init__(self, run: AgentRun):
         super().__init__()
         self.agent_run = run
@@ -78,6 +79,7 @@ class SB3Run(AgentRun):
     An SB3Run must be of type "learn" or "evaluate". Learning runs can have
     log_model() called on them.
     """
+
     SB3_RUN_TAG_KEY = "sb3_agent_run"
 
     def __init__(
@@ -93,9 +95,9 @@ class SB3Run(AgentRun):
         self.set_tag(self.SB3_RUN_TAG_KEY, "True")
 
     def log_model(self, name: str, policy: BasePolicy):
-        assert self.run_type == "learn", (
-            "log_model can only be called by SB3Runs of type 'learn'"
-        )
+        assert (
+            self.run_type == "learn"
+        ), "log_model can only be called by SB3Runs of type 'learn'"
         dir_path = Path(tempfile.mkdtemp())
         policy.save(dir_path / name)
         artifact_path = dir_path / name
@@ -114,7 +116,7 @@ class SB3Run(AgentRun):
         runs = cls._mlflow_client.search_runs(
             experiment_ids=[cls.DEFAULT_EXPERIMENT_ID],
             order_by=["attribute.start_time DESC"],
-            filter_string=f'tag.{cls.SB3_RUN_TAG_KEY} ILIKE "%"'
+            filter_string=f'tag.{cls.SB3_RUN_TAG_KEY} ILIKE "%"',
         )
         if runs:
             # Since runs is sorted by start_time descending, scan the list
@@ -122,8 +124,7 @@ class SB3Run(AgentRun):
             for run in runs:
                 try:
                     policy_path = cls._mlflow_client.download_artifacts(
-                        run.info.run_id,
-                        name
+                        run.info.run_id, name
                     )
                 except IOError:
                     continue  # No policy was logged in this run, keep trying.

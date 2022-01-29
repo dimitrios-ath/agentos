@@ -7,7 +7,7 @@ from stable_baselines3 import PPO
 class PPOPolicy(agentos.Policy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.sb3_ppo = PPO('MlpPolicy', self.environment)
+        self.sb3_ppo = PPO("MlpPolicy", self.environment)
 
     def decide(self, observation):
         return self.sb3_ppo.predict(self.curr_obs)[0]

@@ -12,7 +12,6 @@ from dulwich.errors import NotGitRepository
 
 from agentos.exceptions import (
     BadGitStateException,
-    NoLocalPathException,
     PythonComponentSystemException,
 )
 from agentos.utils import AOS_CACHE_DIR
@@ -358,7 +357,7 @@ class LocalRepo(Repo):
     def get_local_file_path(self, version: str, relative_path: str) -> Path:
         if version is not None:
             print(
-                "WARNING: version was passed into get_local_path() " 
+                "WARNING: version was passed into get_local_path() "
                 "on a LocalRepo, which means it is being ignored. "
                 "If this is actually a versioned repo, use GithubRepo "
                 "or another versioned Repo type."

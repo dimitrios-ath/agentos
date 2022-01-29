@@ -17,7 +17,6 @@ For developer convenience many functions support flattened specs, which have
 the spec identifier at the same level as the rest of the spec properties.
 """
 from typing import Mapping, Union, Any
-from enum import Enum
 
 
 FlatSpec = Mapping[str, str]
@@ -65,7 +64,7 @@ RunCommandSpec = Mapping
 
 
 class RunCommandSpecKeys:
-    IDENTIFIER = "identifier" # for flattened RunCommandSpec
+    IDENTIFIER = "identifier"  # for flattened RunCommandSpec
     COMPONENT_ID = "component_id"
     ENTRY_POINT = "entry_point"
     PARAMETER_SET = "parameter_set"

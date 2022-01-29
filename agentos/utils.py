@@ -8,7 +8,7 @@ AOS_CACHE_DIR = Path.home() / ".agentos_cache"
 
 
 def generate_dummy_dev_registry(
-    version_string: str = "for_tests_dummy_dev_registry"
+    version_string: str = "for_tests_dummy_dev_registry",
 ) -> Dict:
     registry = {}
     r2d2 = _handle_acme_r2d2(version_string)

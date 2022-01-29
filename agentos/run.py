@@ -1,7 +1,7 @@
 import pprint
 from urllib.parse import urlparse
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, Sequence
+from typing import Any, Sequence
 from mlflow.exceptions import MlflowException
 from mlflow.entities import RunStatus
 from mlflow.tracking import MlflowClient
@@ -9,9 +9,6 @@ from agentos.registry import Registry
 from agentos.exceptions import PythonComponentSystemException
 from agentos.specs import RunSpec
 from agentos.identifiers import RunIdentifier
-
-if TYPE_CHECKING:
-    from agentos.component import Component
 
 
 class Run:
@@ -38,6 +35,7 @@ class Run:
     - Entry point string -> MLflow run tag (MlflowRun.data.tags entry)
     - ParameterSet -> artifact yaml file.
     """
+
     _mlflow_client = MlflowClient()
 
     DEFAULT_EXPERIMENT_ID = "0"
@@ -70,9 +68,9 @@ class Run:
         """
         self._return_value = None
         if existing_run_id:
-            assert not experiment_id, (
-                "`existing_run_id` cannot be passed with `experiment_id`"
-            )
+            assert (
+                not experiment_id
+            ), "`existing_run_id` cannot be passed with `experiment_id`"
             try:
                 self._mlflow_client.get_run(existing_run_id)
             except MlflowException as mlflow_exception:
@@ -109,7 +107,7 @@ class Run:
         mlflow_runs = cls._mlflow_client.search_runs(
             experiment_ids=[cls.DEFAULT_EXPERIMENT_ID],
             order_by=["attribute.start_time DESC"],
-            filter_string=f'tag.{cls.PCS_RUN_TAG} ILIKE "%"'
+            filter_string=f'tag.{cls.PCS_RUN_TAG} ILIKE "%"',
         )
         print(f"{len(mlflow_runs)} mlflow_runs")
         print(mlflow_runs)
@@ -205,7 +203,7 @@ class Run:
             )
 
     def _get_artifact_paths(self) -> Sequence[Path]:
-        artifacts_dir = self.download_artifacts('.')
+        artifacts_dir = self.download_artifacts(".")
         artifact_paths = [
             Path(artifacts_dir) / a.path for a in self.list_artifacts()
         ]
@@ -258,6 +256,7 @@ class Run:
     ) -> Registry:
         if not registry:
             from agentos.registry import InMemoryRegistry
+
             registry = InMemoryRegistry()
         registry.add_run_spec(self.to_spec())
         # If we are writing to a WebRegistry, have local artifacts, and

@@ -9,22 +9,22 @@ class AcmeR2D2Agent:
         pass
 
     def evaluate(self, num_episodes):
-        with self.AcmeRun('evaluate', active_component_run()) as run:
+        with self.AcmeRun("evaluate", active_component_run()) as run:
             loop = acme.EnvironmentLoop(
                 self.environment,
                 self,
                 should_update=False,
-                logger=self.run,
+                logger=run,
             )
             loop.run(num_episodes=int(num_episodes))
 
     def learn(self, num_episodes):
-        with self.run('learn', active_component_run()) as run:
+        with self.run("learn", active_component_run()) as run:
             loop = acme.EnvironmentLoop(
                 self.environment,
                 self,
                 should_update=True,
-                logger=self.run,
+                logger=run,
             )
             loop.run(num_episodes=int(num_episodes))
             self.network.save()

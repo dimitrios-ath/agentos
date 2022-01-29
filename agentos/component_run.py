@@ -47,6 +47,7 @@ def active_component_run(
     else:
         return component.active_run
 
+
 class ComponentRun(Run):
     IS_FROZEN_KEY = "agentos.spec_is_frozen"
     IS_COMPONENT_RUN_TAG = "pcs.is_component_run"
@@ -56,22 +57,22 @@ class ComponentRun(Run):
     A ComponentRun represents the execution of a specific entry point of a
     specific Component with a specific parameter set.
     """
+
     def __init__(
         self,
         run_command: RunCommand = None,
         experiment_id: str = None,
         existing_run_id: str = None,
     ) -> None:
-        assert run_command or existing_run_id, (
-            "One of 'run_command' or 'existing_run_id' must be provided."
-        )
+        assert (
+            run_command or existing_run_id
+        ), "One of 'run_command' or 'existing_run_id' must be provided."
         super().__init__(
-            experiment_id=experiment_id,
-            existing_run_id=existing_run_id
+            experiment_id=experiment_id, existing_run_id=existing_run_id
         )
-        assert not (run_command and existing_run_id), (
-            "`run_command` cannot be passed with `existing_run_id`."
-        )
+        assert not (
+            run_command and existing_run_id
+        ), "`run_command` cannot be passed with `existing_run_id`."
         self._run_command = None
         if run_command:
             self._run_command = run_command
@@ -99,10 +100,7 @@ class ComponentRun(Run):
     def from_run_command(
         cls, run_command: RunCommand, experiment_id: str = None
     ) -> "ComponentRun":
-        return cls(
-            run_command=run_command,
-            experiment_id=experiment_id
-        )
+        return cls(run_command=run_command, experiment_id=experiment_id)
 
     def to_registry(
         self,
@@ -150,9 +148,7 @@ class ComponentRun(Run):
         component's dependency graph into flat component specs.
         """
         self._validate_no_run_command_logged()
-        self.set_tag(
-            self.RUN_COMMAND_ID_KEY, run_command.identifier
-        )
+        self.set_tag(self.RUN_COMMAND_ID_KEY, run_command.identifier)
         run_command_dict = run_command.to_registry().to_dict()
         self.log_dict(run_command_dict, self.RUN_COMMAND_REGISTRY_FILENAME)
 
@@ -182,9 +178,9 @@ class ComponentRun(Run):
         :param ret_val: The Python object returned by this Run to be logged.
         :param format: Valid values are 'pickle, 'json', or 'yaml'.
         """
-        assert not self._return_value, (
-            "return_value has already been logged and can only be logged once."
-        )
+        assert (
+            not self._return_value
+        ), "return_value has already been logged and can only be logged once."
         self._return_value = ret_val
         filename_base = self.identifier + "-return_value"
         if format == "pickle":

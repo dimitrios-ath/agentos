@@ -58,9 +58,9 @@ class RunCommand:
         # Not positive if this is stable across architectures.
         # See https://stackoverflow.com/q/27522626
         hash_str = (
-            self._component.identifier.full +
-            self._entry_point +
-            self._parameter_set.identifier
+            self._component.identifier.full
+            + self._entry_point
+            + self._parameter_set.identifier
         )
         return sha1(hash_str.encode("utf-8")).hexdigest()
 
@@ -111,7 +111,7 @@ class RunCommand:
     def from_spec(
         cls, run_cmd_spec: RunCommandSpec, registry: Registry
     ) -> "RunCommand":
-        assert(len(run_cmd_spec) == 1)
+        assert len(run_cmd_spec) == 1
         spec_identifier, inner_spec = None, None
         for key, value in run_cmd_spec.items():
             spec_identifier = key
@@ -119,12 +119,15 @@ class RunCommand:
         component_id = inner_spec[RunCommandSpecKeys.COMPONENT_ID]
         from agentos.component import Component
         from agentos.parameter_set import ParameterSet
+
         component = Component.from_registry(registry, component_id)
-        param_set = ParameterSet.from_spec(inner_spec[RunCommandSpecKeys.PARAMETER_SET])
+        param_set = ParameterSet.from_spec(
+            inner_spec[RunCommandSpecKeys.PARAMETER_SET]
+        )
         new_run_cmd = cls(
             component=component,
             entry_point=inner_spec[RunCommandSpecKeys.ENTRY_POINT],
-            parameter_set=param_set
+            parameter_set=param_set,
         )
         assert new_run_cmd.identifier == spec_identifier, (
             f"Identifier of new run_command {new_run_cmd.identifier} "
@@ -163,6 +166,7 @@ class RunCommand:
         """
         if not registry:
             from agentos.registry import InMemoryRegistry
+
             registry = InMemoryRegistry()
         registry.add_run_command_spec(self.to_spec())
         if recurse:
