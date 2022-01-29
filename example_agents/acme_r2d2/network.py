@@ -3,7 +3,7 @@ import sonnet as snt
 
 
 class R2D2Network:
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.rnn = BasicRNN(self.environment)
 
     def restore(self):

@@ -2,7 +2,7 @@ import sonnet as snt
 
 
 class AcmeDQNNetwork:
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.net = snt.Sequential(
             [
                 snt.Flatten(),

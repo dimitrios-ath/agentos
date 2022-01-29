@@ -11,8 +11,6 @@ agent:
         num_episodes: 100
     learn:
         num_episodes: 200
-network:
-    __init__:
 environment:
     __init__:
         <<: *shared
